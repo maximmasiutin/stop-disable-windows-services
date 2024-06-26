@@ -1,2 +1,5 @@
 # Stop and Disable Windows Services
-This PoweShell script is aimed to stop and disable certain Windows services listed in that script
+
+Copyright 2024 Maxim Masiutin. All rights reserved
+
+This PoweShell script is aimed to stop and disable certain Windows services listed in that script.

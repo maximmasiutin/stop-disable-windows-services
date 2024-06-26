@@ -1,3 +1,8 @@
+#
+# Stop and Disable Windows Services v1.0 
+# Copyright 2024 Maxim Masiutin. All rights reserved
+#
+
 $manual_services = @(
 "AsusAppService"		# ASUS App Service -- Monitors the status of services within MyASUS.
 "ASUSOptimization"		# Provides hardware and software settings control inside Customization tab of MyASUS.
@@ -235,7 +240,10 @@ $start_services = @(
 "WlanSvc"
 )
 
-# Sleep 2 seconds to let automatic services to start before we stop them
+Write-Output "Stop and Disable Windows Services v1.0"
+Write-Output "Copyright 2024 Maxim Masiutin. All rights reserved"
+
+# Sleep 2 seconds to let automatic services start before we stop them
 Start-Sleep -Seconds 2
 
 foreach ($serviceName in $manual_services) {

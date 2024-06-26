@@ -1,2 +1,2 @@
-# stop-disable-windows-services
-This PoweShell script is amed to stop and disable certain Windows services listed in that script
+# Stop and Disable Windows Services
+This PoweShell script is aimed to stop and disable certain Windows services listed in that script

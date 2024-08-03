@@ -4,6 +4,12 @@
 #
 
 $manual_services = @(
+"asus"				# ASUS Update Service (asus) -- Keeps your ASUS software up to date. If this service is disabled or stopped, your ASUS software will not be kept up to date, meaning security vulnerabilities that may arise cannot be fixed and features may not work. This service uninstalls itself when there is no ASUS software using it.
+"AsusROGLSLService"		# AsusROGLSLService Download ROGLSLoader
+"GoogleUpdaterInternalService*"	
+"GoogleUpdaterService128.0.6597.0"
+"ArmouryCrateService"		# ASUS ARMOURY CRATE Service
+"LightingService"		# ASUS AURA SYNC lighting service
 "AarSvc_*"                      # ????
 "AdobeARMservice"                       # Adobe Acrobat Update Service -- Adobe Acrobat Updater keeps your Adobe software up to date.
 "AESMService"                   # Intel SGX AESM -- The system services management agent for Intel Software Guard Extensions enabled applications.
@@ -179,8 +185,9 @@ $manual_services = @(
 )
 
 $disable_services = @(
-"LanmanServer"                             # Server
-"LanmanWorkstation"                        # Workstation
+"LanmanServer"                  # Server
+"LanmanWorkstation"             # Workstation
+"tvnserver"			# TightVNC Server
 )
 
 $stop_services = @(

@@ -1,2 +1,2 @@
 #echo You should run this cript from the current directory
-powershell -file stop-services.ps1
+powershell -file %~dp0%stop-services.ps1

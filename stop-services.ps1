@@ -4,19 +4,16 @@
 #
 
 $manual_services = @(
-"asus"				# ASUS Update Service (asus) -- Keeps your ASUS software up to date. If this service is disabled or stopped, your ASUS software will not be kept up to date, meaning security vulnerabilities that may arise cannot be fixed and features may not work. This service uninstalls itself when there is no ASUS software using it.
-"AsusROGLSLService"		# AsusROGLSLService Download ROGLSLoader
-"GoogleUpdaterInternalService*"	
-"GoogleUpdaterService128.0.6597.0"
-"ArmouryCrateService"		# ASUS ARMOURY CRATE Service
-"LightingService"		# ASUS AURA SYNC lighting service
 "AarSvc_*"                      # ????
 "AdobeARMservice"                       # Adobe Acrobat Update Service -- Adobe Acrobat Updater keeps your Adobe software up to date.
 "AESMService"                   # Intel SGX AESM -- The system services management agent for Intel Software Guard Extensions enabled applications.
 "agent_ovpnconnect"             # OpenVPN Agent agent_ovpnconnec
 "AppVClient"                    # Microsoft App-V Client -- Manages App-V users and virtual applications
+"ArmouryCrateService"		# ASUS ARMOURY CRATE Service
+"asus"				# ASUS Update Service (asus) -- Keeps your ASUS software up to date. If this service is disabled or stopped, your ASUS software will not be kept up to date, meaning security vulnerabilities that may arise cannot be fixed and features may not work. This service uninstalls itself when there is no ASUS software using it.
 "AsusAppService"		# ASUS App Service -- Monitors the status of services within MyASUS.
 "ASUSOptimization"		# Provides hardware and software settings control inside Customization tab of MyASUS.
+"AsusROGLSLService"		# AsusROGLSLService Download ROGLSLoader
 "ASUSSoftwareManager"		# Supports software, firmware, and driver updates through MyASUS.
 "ASUSSwitch"			# Provides Switch & Recovery services within MyASUS.
 "ASUSSystemAnalysis"		# Provides the hardware information required for System Diagnosis inside MyASUS.
@@ -65,7 +62,6 @@ $manual_services = @(
 "DSAUpdateService"              # Intel(R) Driver & Support Assistant Updater -- Keep Intel(R) Driver & Support Assistant up-to-date
 "DsmSvc"                        # Device Setup Manager -- Enables the detection, download and installation of device-related software. If this service is disabled, devices may be configured with outdated software, and may not work correctly.
 "DsSvc"                         # Data Sharing Service -- Provides data brokering between applications.
-"DsSvc"                         # Data Sharing Service -- Provides data brokering between applications.
 "DusmSvc"
 "edgeupdate"                    # Microsoft Edge Update Service (edgeupdate) -- Keeps your Microsoft software up to date. If this service is disabled or stopped, your Microsoft software will not be kept up to date, meaning security vulnerabilities that may arise cannot be fixed and features may not work. This service uninstalls itself when there is no Microsoft software using it.
 "esifsvc"
@@ -79,8 +75,10 @@ $manual_services = @(
 "GamingServices"
 "GamingServicesNet"
 "GoogleChromeElevationService"  #
+"GoogleUpdaterInternalService*"
 "GoogleUpdaterInternalService*" #
 "GoogleUpdaterService*"         #
+"GoogleUpdaterService128.0.6597.0"
 "gupdate"
 "HNS"                           # Host Network Service -- Provides support for Windows Virtual Networks.
 "ibtsiva"                       # Intel(R) Wireless Bluetooth(R) iBtSiva Service
@@ -94,6 +92,7 @@ $manual_services = @(
 "ipfsvc"			# Intel(R) Innovation Platform Framework Service
 "jhi_service"                   # Intel(R) Dynamic Application Loader Host Interface Service -- Intel(R) Dynamic Application Loader Host Interface Service - Allows applications to access the local Intel (R) DAL
 "lfsvc"                         # Geolocation Service
+"LightingService"		# ASUS AURA SYNC lighting service
 "lmhosts"
 "LMS"                           # Intel(R) Management and Security Application Local Management Service -- Intel(R) Management and Security Application Local Management Service - Provides OS-related Intel(R) ME functionality.
 "ManyCam Service"
@@ -119,12 +118,19 @@ $manual_services = @(
 "PrintWorkflow_*"
 "PrintWorkflowUserSvc_*"        # Provides support for Print Workflow applications. If you turn off this service, you may not be able to print successfully.
 "RasMan"
+"Razer Chroma SDK Server"	# Razer Chroma SDK Server -- Razer Chroma SDK web interface
+"Razer Chroma SDK Service"	# Razer Chroma SDK Service -- Provides access to Razer hardware for applications using Razer SDK
+"Razer Chroma Stream Server"	# Razer Chroma Stream Server -- Provides access to the Razer Stream API
+"Razer Game Manager Service 3"  # Razer Game Manager Service 3 -- This service allows for Razer software applications and services to manage the games installed on the system.
+"Razer Game Manager Service"	# Razer Game Manager -- This service allows for Razer software applications and services to manage the games installed on the system.
+"Razer Synapse Service"		# Razer Synapse Service
 "RemoteAccess"                  # Routing and Remote Access
 "RemoteRegistry"                # Remote Registry
 "RmSvc"                         # Radio Management Service -- Radio Management and Airplane Mode Service
 "RstMwService"                  # Intel Storage Middleware Service -- RPC endpoint service which allows communication between driver and Windows Store Application
 "RtkAudioUniversalService"	# Realtek Audio Universal Service
 "RtkBtManServ"			# Realtek Bluetooth Device Manager Service
+"RzActionSvc"			# Razer Central Service
 "SAService"                     # Conexant SmartAudio service -- SmartAudio Helper service
 "SCardSvr"                      # Smart Card -- Manages access to smart cards read by this computer. If this service is stopped, this computer will be unable to read smart cards. If this service is disabled, any services that explicitly depend on it will fail to start.
 "ScDeviceEnum"                  # Smart Card Device Enumeration Service -- Creates software device nodes for all smart card readers accessible to a given session. If this service is disabled, WinRT APIs will not be able to enumerate smart card readers.
@@ -190,6 +196,7 @@ $disable_services = @(
 "tvnserver"			# TightVNC Server
 )
 
+
 $stop_services = @(
 "BrokerInfrastructure"          # Background Tasks Infrastructure Service -- Windows infrastructure service that controls which background tasks can run on the system.
 "bthserv"                       # Bluetooth Support Service -- The Bluetooth service supports discovery and association of remote Bluetooth devices.  Stopping or disabling this service may cause already installed Bluetooth devices to fail to operate properly and prevent new devices from being discovered or associated.
@@ -241,6 +248,8 @@ $stop_services = @(
 "WpnUserService_*"              # This service hosts Windows notification platform which provides support for local and push notifications. Supported notifications are tile, toast and raw.
 "wuauserv"                      # Windows Update -- Enables the detection, download, and installation of updates for Windows and other programs. If this service is disabled, users of this computer will not be able to use Windows Update or its automatic updating feature, and programs will not be able to use the Windows Update Agent (WUA) API.
 )
+
+
 
 $start_services = @(
 "DeviceAssociationService"

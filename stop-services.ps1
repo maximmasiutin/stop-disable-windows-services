@@ -195,6 +195,7 @@ $audio_services = @(
 
 
 $print_services = @(
+  "LPDSVC"			  # LPD Service -- nables client computers to print to the Line Printer Daemon (LPD) service on this server using TCP/IP and the Line Printer Remote (LPR) protocol.
   "StiSvc"                        # Windows Image Acquisition (WIA) -- Provides image acquisition services for scanners and cameras
   "DeviceInstall"                 # Device Install Service -- Enables a computer to recognize and adapt to hardware changes with little or no user input. Stopping or disabling this service will result in system instability.
   "DmEnrollmentSvc"               # Device Management Enrollment Service -- Performs Device Enrollment Activities for Device Management
@@ -220,12 +221,12 @@ else {
 
 if ($print -eq $true) {
   Write-Output "Setting up print services as automatic..."
-  $auto_services += $audio_services
+  $auto_services += $print_services
 }
 else {
   Write-Output "Setting up print services as manual..."
-  $manual_services += $audio_services
-  $stop_services += $audio_services
+  $manual_services += $print_services
+  $stop_services += $print_services
 }
 
 

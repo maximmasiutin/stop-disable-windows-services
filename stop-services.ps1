@@ -53,14 +53,24 @@ $manual_services = @(
   "Dhcp"                          # DHCP Client -- Registers and updates IP addresses and DNS records for this computer. If this service is stopped, this computer will not receive dynamic IP addresses and DNS updates. If this service is disabled, any services that explicitly depend on it will fail to start.
   "diagnosticshub.standardcollector.service" # Microsoft (R) Diagnostics Hub Standard Collector Service
   "DiagTrack"                     # Diagnostics Tracking Service
-  "DiracAudSrv"			# Dirac Audio Service
+  "DiracAudSrv"			  # Dirac Audio Service
   "DispBrokerDesktopSvc"
   "DisplayEnhancementService"     # Display Enhancement Service -- A service for managing display enhancement such as brightness control.
   "dmwappushservice"                         # WAP Push Message Routing Service (see known issues)
   "DoSvc"                         # Delivery Optimization -- Performs content delivery optimization tasks
   "DPMService"                    # Dell Peripheral Manager Service
+  "DellClientManagementService"   # Enables Dell applications to manage Dell specific features of the system. If this service is stopped, any services that explicitly depend on it will cause this service to be restarted. If this service is disabled, any services that explicitly depend on it will fail to function.
+  "DDVDataCollector"		  # Dell Data Vault Collector -- DDV Collector service gathers system information and stores it for later use
+  "DDVRulesProcessor"		  # Dell Data Vault Processor -- DDV Rules Processor generates alerts based on data collected by DDV Collector service
+  "DDVCollectorSvcApi"		  # Dell Data Vault Service API -- Dell Data Vault Service API exposes a COM API for working with the DDV services
+  "Dell Digital Delivery Services" # Downloads and installs the applications that you purchased with your computer
+  "DPMService"			  # Dell Peripheral Manager Service
+  "SupportAssistAgent"		  # Dell SupportAssist keeps your PC up to date and running at its best with recommended software and driver updates. It also helps resolve issues quickly by detecting common problems and sending issue details to Dell Technical Support agents on your behalf.
+  "Dell SupportAssist Remediation" # Dell SupportAssist Remediation Service
+  "DellTechHub"			  # Dell TechHub -- Foundational service managing Dell applications through Dell TechHub 
+  "DellTrustedDevice"	  	  # Dell Trusted Device -- Enables enhanced physical hardware security.
   "DPS"                           # Diagnostic Policy Service -- The Diagnostic Policy Service enables problem detection, troubleshooting and resolution for Windows components.  If this service is stopped, diagnostics will no longer function.
-  "dptftcs"			# Intel(R) Dynamic Tuning Technology Telemetry Service
+  "dptftcs"			  # Intel(R) Dynamic Tuning Technology Telemetry Service
   "DSAService"
   "DSAUpdateService"              # Intel(R) Driver & Support Assistant Updater -- Keep Intel(R) Driver & Support Assistant up-to-date
   "DsmSvc"                        # Device Setup Manager -- Enables the detection, download and installation of device-related software. If this service is disabled, devices may be configured with outdated software, and may not work correctly.
@@ -73,7 +83,7 @@ $manual_services = @(
   "FDResPub"                      # Function Discovery Resource Publication -- Publishes this computer and resources attached to this computer so they can be discovered over the network.  If this service is stopped, network resources will no longer be published and they will not be discovered by other computers on the network.
   "FontCache"                     # Windows Font Cache Service -- Optimizes performance of applications by caching commonly used font data. Applications will start this service if it is not already running. It can be disabled, though doing so will degrade application performance.
   "FontCache*"
-  "FoxitReaderUpdateService"	# Foxit PDF Reader Update Service
+  "FoxitReaderUpdateService"	  # Foxit PDF Reader Update Service
   "GameInput Service"             # Host service for GameInput.
   "GamingServices"
   "GamingServicesNet"

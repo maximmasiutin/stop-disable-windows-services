@@ -14,6 +14,7 @@ $manual_services = @(
   "AarSvc_*"                      # ????
   "AdobeARMservice"                       # Adobe Acrobat Update Service -- Adobe Acrobat Updater keeps your Adobe software up to date.
   "AESMService"                   # Intel SGX AESM -- The system services management agent for Intel Software Guard Extensions enabled applications.
+  "IntelVrocOobAgent"	          # Intel VROC OOB Agent -- Intel Virtual RAID on CPU out-of-band management agent.
   "agent_ovpnconnect"             # OpenVPN Agent agent_ovpnconnec
   "AppVClient"                    # Microsoft App-V Client -- Manages App-V users and virtual applications
   "ArmouryCrateService"		# ASUS ARMOURY CRATE Service

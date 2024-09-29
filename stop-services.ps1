@@ -115,7 +115,6 @@ $manual_services = @(
   "NetTcpPortSharing"             # Net.Tcp Port Sharing Service
   "NPSMSvc_*"
   "nscp"                          # NSClient++ (x64) -- Monitoring agent for nagios (and others) used to respond to status querie
-  "nsi"                           # Network Store Interface Service -- This service delivers network notifications (e.g. interface addition/deleting etc) to user mode clients. Stopping this service will cause loss of network connectivity. If this service is disabled, any other services that explicitly depend on this service will fail to start.
   "NvContainerLocalSystem"        # NVIDIA LocalSystem Container -- Container service for NVIDIA root features
   "NVDisplay.ContainerLocalSystem"
   "OneSyncSvc"

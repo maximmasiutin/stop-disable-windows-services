@@ -144,7 +144,6 @@ $manual_services = @(
   "SCPolicySvc"                   # Allows the system to be configured to lock the user desktop upon smart card removal.
   "SecurityHealthService"         # Windows Security Service -- Windows Security Service handles unified device protection and health information
   "SENS"
-  "SharedAccess"                  # Internet Connection Sharing (ICS)
   "SQLWriter"                     # SQL Server VSS Writer -- Provides the interface to backup/restore Microsoft SQL server through the Windows VSS infrastructure.
   "SSDPSRV"                       # SSDP Discovery -- Discovers networked devices and services that use the SSDP discovery protocol, such as UPnP devices. Also announces SSDP devices and services running on the local computer. If this service is stopped, SSDP-based devices will not be discovered. If this service is disabled, any services that explicitly depend on it will fail to start.
   "ssh-agent"                     # OpenSSH Authentication Agent
@@ -240,10 +239,12 @@ else {
 $disable_services = @(
   "LanmanServer"                  # Server
   "LanmanWorkstation"             # Workstation
-  "tvnserver"			                # TightVNC Server
+  "tvnserver"			  # TightVNC Server
   "RemoteAccess"                  # Routing and Remote Access
   "RemoteRegistry"                # Remote Registry
   "XboxNetApiSvc"                 # Xbox Live Networking Service
+  "SharedAccess"                  # Internet Connection Sharing (ICS)
+
 )
 
 $stop_services = @(

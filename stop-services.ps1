@@ -12,19 +12,19 @@ $auto_services = @(
 
 $manual_services = @(
   "AarSvc_*"                      # ????
-  "AdobeARMservice"                       # Adobe Acrobat Update Service -- Adobe Acrobat Updater keeps your Adobe software up to date.
+  "AdobeARMservice"               # Adobe Acrobat Update Service -- Adobe Acrobat Updater keeps your Adobe software up to date.
   "AESMService"                   # Intel SGX AESM -- The system services management agent for Intel Software Guard Extensions enabled applications.
   "agent_ovpnconnect"             # OpenVPN Agent agent_ovpnconnec
   "AppVClient"                    # Microsoft App-V Client -- Manages App-V users and virtual applications
-  "ArmouryCrateService"		# ASUS ARMOURY CRATE Service
-  "asus"				# ASUS Update Service (asus) -- Keeps your ASUS software up to date. If this service is disabled or stopped, your ASUS software will not be kept up to date, meaning security vulnerabilities that may arise cannot be fixed and features may not work. This service uninstalls itself when there is no ASUS software using it.
-  "AsusAppService"		# ASUS App Service -- Monitors the status of services within MyASUS.
-  "ASUSOptimization"		# Provides hardware and software settings control inside Customization tab of MyASUS.
-  "AsusROGLSLService"		# AsusROGLSLService Download ROGLSLoader
-  "ASUSSoftwareManager"		# Supports software, firmware, and driver updates through MyASUS.
-  "ASUSSwitch"			# Provides Switch & Recovery services within MyASUS.
-  "ASUSSystemAnalysis"		# Provides the hardware information required for System Diagnosis inside MyASUS.
-  "ASUSSystemDiagnosis"		# Provides System Diagnosis services within MyASUS.
+  "ArmouryCrateService"		        # ASUS ARMOURY CRATE Service
+  "asus"				                  # ASUS Update Service (asus) -- Keeps your ASUS software up to date. If this service is disabled or stopped, your ASUS software will not be kept up to date, meaning security vulnerabilities that may arise cannot be fixed and features may not work. This service uninstalls itself when there is no ASUS software using it.
+  "AsusAppService"		            # ASUS App Service -- Monitors the status of services within MyASUS.
+  "ASUSOptimization"		          # Provides hardware and software settings control inside Customization tab of MyASUS.
+  "AsusROGLSLService"		          # AsusROGLSLService Download ROGLSLoader
+  "ASUSSoftwareManager"		        # Supports software, firmware, and driver updates through MyASUS.
+  "ASUSSwitch"			              # Provides Switch & Recovery services within MyASUS.
+  "ASUSSystemAnalysis"		        # Provides the hardware information required for System Diagnosis inside MyASUS.
+  "ASUSSystemDiagnosis"		        # Provides System Diagnosis services within MyASUS.
   "atashost"                      # WebEx Service Host for Support Center
   "BcastDVRUserService_*"         # This user service is used for Game Recordings and Live Broadcasts
   "BITS"                          # Background Intelligent Transfer Service -- Transfers files in the background using idle network bandwidth. If the service is disabled, then any applications that depend on BITS, such as Windows Update or MSN Explorer, will be unable to automatically download programs and other information.
@@ -47,30 +47,29 @@ $manual_services = @(
   "CxAudioSvc"
   "CxUIUSvc"
   "CxUtilSvc"
+  "DDVCollectorSvcApi"		        # Dell Data Vault Service API -- Dell Data Vault Service API exposes a COM API for working with the DDV services
+  "DDVDataCollector"		          # Dell Data Vault Collector -- DDV Collector service gathers system information and stores it for later use
+  "DDVRulesProcessor"		          # Dell Data Vault Processor -- DDV Rules Processor generates alerts based on data collected by DDV Collector service
   "debugregsvc"                   # Provides helper APIs to enable device discovery and debugging over the network
+  "Dell Digital Delivery Services" # Downloads and installs the applications that you purchased with your computer
+  "Dell SupportAssist Remediation" # Dell SupportAssist Remediation Service
+  "DellClientManagementService"   # Enables Dell applications to manage Dell specific features of the system. If this service is stopped, any services that explicitly depend on it will cause this service to be restarted. If this service is disabled, any services that explicitly depend on it will fail to function.
+  "DellTechHub"			              # Dell TechHub -- Foundational service managing Dell applications through Dell TechHub 
+  "DellTrustedDevice"	  	        # Dell Trusted Device -- Enables enhanced physical hardware security.
   "DeviceAssociationBrokerSvc_*"  # Enables apps to pair devices
   "DeviceAssociationService"      # Device Association Service -- Enables pairing between the system and wired or wireless devices.
   "Dhcp"                          # DHCP Client -- Registers and updates IP addresses and DNS records for this computer. If this service is stopped, this computer will not receive dynamic IP addresses and DNS updates. If this service is disabled, any services that explicitly depend on it will fail to start.
   "diagnosticshub.standardcollector.service" # Microsoft (R) Diagnostics Hub Standard Collector Service
   "DiagTrack"                     # Diagnostics Tracking Service
-  "DiracAudSrv"			  # Dirac Audio Service
+  "DiracAudSrv"			              # Dirac Audio Service
   "DispBrokerDesktopSvc"
   "DisplayEnhancementService"     # Display Enhancement Service -- A service for managing display enhancement such as brightness control.
   "dmwappushservice"                         # WAP Push Message Routing Service (see known issues)
   "DoSvc"                         # Delivery Optimization -- Performs content delivery optimization tasks
-  "DPMService"                    # Dell Peripheral Manager Service
-  "DellClientManagementService"   # Enables Dell applications to manage Dell specific features of the system. If this service is stopped, any services that explicitly depend on it will cause this service to be restarted. If this service is disabled, any services that explicitly depend on it will fail to function.
-  "DDVDataCollector"		  # Dell Data Vault Collector -- DDV Collector service gathers system information and stores it for later use
-  "DDVRulesProcessor"		  # Dell Data Vault Processor -- DDV Rules Processor generates alerts based on data collected by DDV Collector service
-  "DDVCollectorSvcApi"		  # Dell Data Vault Service API -- Dell Data Vault Service API exposes a COM API for working with the DDV services
-  "Dell Digital Delivery Services" # Downloads and installs the applications that you purchased with your computer
   "DPMService"			  # Dell Peripheral Manager Service
-  "SupportAssistAgent"		  # Dell SupportAssist keeps your PC up to date and running at its best with recommended software and driver updates. It also helps resolve issues quickly by detecting common problems and sending issue details to Dell Technical Support agents on your behalf.
-  "Dell SupportAssist Remediation" # Dell SupportAssist Remediation Service
-  "DellTechHub"			  # Dell TechHub -- Foundational service managing Dell applications through Dell TechHub 
-  "DellTrustedDevice"	  	  # Dell Trusted Device -- Enables enhanced physical hardware security.
+  "DPMService"                    # Dell Peripheral Manager Service
   "DPS"                           # Diagnostic Policy Service -- The Diagnostic Policy Service enables problem detection, troubleshooting and resolution for Windows components.  If this service is stopped, diagnostics will no longer function.
-  "dptftcs"			  # Intel(R) Dynamic Tuning Technology Telemetry Service
+  "dptftcs"			                  # Intel(R) Dynamic Tuning Technology Telemetry Service
   "DSAService"
   "DSAUpdateService"              # Intel(R) Driver & Support Assistant Updater -- Keep Intel(R) Driver & Support Assistant up-to-date
   "DsmSvc"                        # Device Setup Manager -- Enables the detection, download and installation of device-related software. If this service is disabled, devices may be configured with outdated software, and may not work correctly.
@@ -83,7 +82,7 @@ $manual_services = @(
   "FDResPub"                      # Function Discovery Resource Publication -- Publishes this computer and resources attached to this computer so they can be discovered over the network.  If this service is stopped, network resources will no longer be published and they will not be discovered by other computers on the network.
   "FontCache"                     # Windows Font Cache Service -- Optimizes performance of applications by caching commonly used font data. Applications will start this service if it is not already running. It can be disabled, though doing so will degrade application performance.
   "FontCache*"
-  "FoxitReaderUpdateService"	  # Foxit PDF Reader Update Service
+  "FoxitReaderUpdateService"	    # Foxit PDF Reader Update Service
   "GameInput Service"             # Host service for GameInput.
   "GamingServices"
   "GamingServicesNet"
@@ -101,6 +100,7 @@ $manual_services = @(
   "Intel(R) TPM Provisioning Service" # Intel(R) TPM Provisioning Service (C:\WINDOWS\System32\DriverStore\FileRepository\iclsclient.inf_amd64_76523213b78d9046\lib\TPMProvisioningService.exe)
   "IntelArcControlService"	# Intel(R) Arc Control Service Service for Intel Arc Control. Manages the backend for the Intel Arc Control
   "IntelAudioService"             # Intel(R) Audio Service
+  "IntelVrocOobAgent"	          # Intel VROC OOB Agent -- Intel Virtual RAID on CPU out-of-band management agent.
   "IntuneManagementExtension"     # Microsoft Intune Management Extension
   "ipfsvc"			# Intel(R) Innovation Platform Framework Service
   "jhi_service"                   # Intel(R) Dynamic Application Loader Host Interface Service -- Intel(R) Dynamic Application Loader Host Interface Service - Allows applications to access the local Intel (R) DAL
@@ -115,7 +115,6 @@ $manual_services = @(
   "NetTcpPortSharing"             # Net.Tcp Port Sharing Service
   "NPSMSvc_*"
   "nscp"                          # NSClient++ (x64) -- Monitoring agent for nagios (and others) used to respond to status querie
-  #"nsi"                           # Network Store Interface Service -- This service delivers network notifications (e.g. interface addition/deleting etc) to user mode clients. Stopping this service will cause loss of network connectivity. If this service is disabled, any other services that explicitly depend on this service will fail to start.
   "NvContainerLocalSystem"        # NVIDIA LocalSystem Container -- Container service for NVIDIA root features
   "NVDisplay.ContainerLocalSystem"
   "OneSyncSvc"
@@ -128,19 +127,17 @@ $manual_services = @(
   "Pml Driver HPZ12"
   "Power"
   "RasMan"
-  "Razer Chroma SDK Server"	# Razer Chroma SDK Server -- Razer Chroma SDK web interface
-  "Razer Chroma SDK Service"	# Razer Chroma SDK Service -- Provides access to Razer hardware for applications using Razer SDK
-  "Razer Chroma Stream Server"	# Razer Chroma Stream Server -- Provides access to the Razer Stream API
+  "Razer Chroma SDK Server"	      # Razer Chroma SDK Server -- Razer Chroma SDK web interface
+  "Razer Chroma SDK Service"	    # Razer Chroma SDK Service -- Provides access to Razer hardware for applications using Razer SDK
+  "Razer Chroma Stream Server"	  # Razer Chroma Stream Server -- Provides access to the Razer Stream API
   "Razer Game Manager Service 3"  # Razer Game Manager Service 3 -- This service allows for Razer software applications and services to manage the games installed on the system.
-  "Razer Game Manager Service"	# Razer Game Manager -- This service allows for Razer software applications and services to manage the games installed on the system.
-  "Razer Synapse Service"		# Razer Synapse Service
-  "RemoteAccess"                  # Routing and Remote Access
-  "RemoteRegistry"                # Remote Registry
+  "Razer Game Manager Service"	  # Razer Game Manager -- This service allows for Razer software applications and services to manage the games installed on the system.
+  "Razer Synapse Service"		      # Razer Synapse Service
   "RmSvc"                         # Radio Management Service -- Radio Management and Airplane Mode Service
   "RstMwService"                  # Intel Storage Middleware Service -- RPC endpoint service which allows communication between driver and Windows Store Application
-  "RtkAudioUniversalService"	# Realtek Audio Universal Service
-  "RtkBtManServ"			# Realtek Bluetooth Device Manager Service
-  "RzActionSvc"			# Razer Central Service
+  "RtkAudioUniversalService"	    # Realtek Audio Universal Service
+  "RtkBtManServ"			            # Realtek Bluetooth Device Manager Service
+  "RzActionSvc"			              # Razer Central Service
   "SAService"                     # Conexant SmartAudio service -- SmartAudio Helper service
   "SCardSvr"                      # Smart Card -- Manages access to smart cards read by this computer. If this service is stopped, this computer will be unable to read smart cards. If this service is disabled, any services that explicitly depend on it will fail to start.
   "ScDeviceEnum"                  # Smart Card Device Enumeration Service -- Creates software device nodes for all smart card readers accessible to a given session. If this service is disabled, WinRT APIs will not be able to enumerate smart card readers.
@@ -155,6 +152,7 @@ $manual_services = @(
   "StateRepository"               # State Repository Service -- Provides required infrastructure support for the application model.
   "StorSvc"
   "stunnel"                       # Stunnel TLS wrapper -- TLS offloading and load-balancing proxy
+  "SupportAssistAgent"		        # Dell SupportAssist keeps your PC up to date and running at its best with recommended software and driver updates. It also helps resolve issues quickly by detecting common problems and sending issue details to Dell Technical Support agents on your behalf.
   "SysMain"
   "SystemEventsBroker"
   "SystemUsageReportSvc_QUEENCREEK"
@@ -177,7 +175,7 @@ $manual_services = @(
   "VMware NAT Service"
   "VMwareHostd"
   "WaaSMedicSvc"                  # Windows Update Medic Service -- Enables remediation and protection of Windows Update components.
-  "WbioSrvc"                                 # Windows Biometric Service (required for Fingerprint reader / facial detection)
+  "WbioSrvc"                      # Windows Biometric Service (required for Fingerprint reader / facial detection)
   "Wcmsvc"                        # Windows Connection Manager -- Makes automatic connect/disconnect decisions based on the network connectivity options currently available to the PC and enables management of network connectivity based on Group Policy settings.
   "webthreatdefsvc"
   "webthreatdefusersvc"           # Web Threat Defense User Service -- Web Threat Defense User Service helps protect your computer by warning the user when unauthorized entities attempt to gain access to their credentials
@@ -194,7 +192,6 @@ $manual_services = @(
   "XblAuthManager"                # Xbox Live Auth Manager
   "XblGameSave"                   # Xbox Live Game Save Service
   "XboxGipSvc"                    # Xbox Accessory Management Service
-  "XboxNetApiSvc"                 # Xbox Live Networking Service
 )
 
 $audio_services = @(
@@ -205,7 +202,7 @@ $audio_services = @(
 
 
 $print_services = @(
-  "LPDSVC"			  # LPD Service -- nables client computers to print to the Line Printer Daemon (LPD) service on this server using TCP/IP and the Line Printer Remote (LPR) protocol.
+  "LPDSVC"			                    # LPD Service -- nables client computers to print to the Line Printer Daemon (LPD) service on this server using TCP/IP and the Line Printer Remote (LPR) protocol.
   "StiSvc"                        # Windows Image Acquisition (WIA) -- Provides image acquisition services for scanners and cameras
   "DeviceInstall"                 # Device Install Service -- Enables a computer to recognize and adapt to hardware changes with little or no user input. Stopping or disabling this service will result in system instability.
   "DmEnrollmentSvc"               # Device Management Enrollment Service -- Performs Device Enrollment Activities for Device Management
@@ -244,6 +241,9 @@ $disable_services = @(
   "LanmanServer"                  # Server
   "LanmanWorkstation"             # Workstation
   "tvnserver"			                # TightVNC Server
+  "RemoteAccess"                  # Routing and Remote Access
+  "RemoteRegistry"                # Remote Registry
+  "XboxNetApiSvc"                 # Xbox Live Networking Service
 )
 
 $stop_services = @(

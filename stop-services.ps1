@@ -117,6 +117,7 @@ $manual_services = @(
   "nscp"                          # NSClient++ (x64) -- Monitoring agent for nagios (and others) used to respond to status querie
   "NvContainerLocalSystem"        # NVIDIA LocalSystem Container -- Container service for NVIDIA root features
   "NVDisplay.ContainerLocalSystem"
+  "NVWMI"			  # NVWMI Provider Service
   "OneSyncSvc"
   "OneSyncSvc_*"
   "OpenVPNServiceInteractive"     # OpenVPN Interactive Service -- Allows OpenVPN GUI and other clients to establish OpenVPN connections without administrative privileges in a secure way.

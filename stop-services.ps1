@@ -243,12 +243,12 @@ $disable_services = @(
   "tvnserver"			  # TightVNC Server
   "RemoteAccess"                  # Routing and Remote Access
   "RemoteRegistry"                # Remote Registry
-  "XboxNetApiSvc"                 # Xbox Live Networking Service
   "SharedAccess"                  # Internet Connection Sharing (ICS)
-
+  "WinRM"			  # Windows Remote Management (WS-Management) -- Windows Remote Management (WinRM) service implements the WS-Management protocol for remote management. WS-Management is a standard web services protocol used for remote software and hardware management. The WinRM service listens on the network for WS-Management requests and processes them. The WinRM Service needs to be configured with a listener using winrm.cmd command line tool or through Group Policy in order for it to listen over the network. The WinRM service provides access to WMI data and enables event collection. Event collection and subscription to events require that the service is running. WinRM messages use HTTP and HTTPS as transports. The WinRM service does not depend on IIS but is preconfigured to share a port with IIS on the same machine.  The WinRM service reserves the /wsman URL prefix. To prevent conflicts with IIS, administrators should ensure that any websites hosted on IIS do not use the /wsman URL prefix.
 )
 
 $stop_services = @(
+  "XboxNetApiSvc"                 # Xbox Live Networking Service
   "BrokerInfrastructure"          # Background Tasks Infrastructure Service -- Windows infrastructure service that controls which background tasks can run on the system.
   "bthserv"                       # Bluetooth Support Service -- The Bluetooth service supports discovery and association of remote Bluetooth devices.  Stopping or disabling this service may cause already installed Bluetooth devices to fail to operate properly and prevent new devices from being discovered or associated.
   "camsvc"                        # Capability Access Manager Service -- Provides facilities for managing UWP apps access to app capabilities as well as checking an app's access to specific app capabilities

@@ -11,6 +11,7 @@ $auto_services = @(
 )
 
 $manual_services = @(
+  "NVIDIA Share"
   "AarSvc_*"                      # ????
   "AdobeARMservice"               # Adobe Acrobat Update Service -- Adobe Acrobat Updater keeps your Adobe software up to date.
   "AESMService"                   # Intel SGX AESM -- The system services management agent for Intel Software Guard Extensions enabled applications.

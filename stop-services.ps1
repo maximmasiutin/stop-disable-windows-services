@@ -7,6 +7,18 @@ $audio = $true;
 $print = $true;
 
 
+
+# Note: the following services should be automatically started to avoid errors such as "Volume Shadow Copy Service error: Unexpected error calling routine IVssAsrWriterBackup::GetDiskComponents"
+# - COMSysApp		COM+ System Application Service
+# - EventSystem		COM+ Event System
+# - MSDTC		Distributed Transaction Coordinator Service
+# - swprv		Microsoft Software Shadow Copy Provider
+# - srservice		System Restore Service (doe not exist in lates Windows 11 versions)
+# - SDRSVC		Can replace srservice in latest Windows 11 versions
+# - VSS 		Volume Shadow Copy Service
+# - vds			Virtual Disk Service - needed for Disk Management
+
+
 $auto_services = @(
 )
 

@@ -49,7 +49,6 @@ $manual_services = @(
   "camsvc"                        # Capability Access Manager Service -- Provides facilities for managing UWP apps access to app capabilities as well as checking an app's access to specific app capabilities
   "cbdhsvc"
   "cbdhsvc_*"
-  "CDPSvc"                        # Connected Devices Platform Service -- This service is used for Connected Devices Platform scenarios
   "CDPUserSvc"
   "CDPUserSvc_*"
   "ClickToRunSvc"                 # Microsoft Office Click-to-Run Service
@@ -78,7 +77,6 @@ $manual_services = @(
   "DispBrokerDesktopSvc"
   "DisplayEnhancementService"     # Display Enhancement Service -- A service for managing display enhancement such as brightness control.
   "dmwappushservice"                         # WAP Push Message Routing Service (see known issues)
-  "DoSvc"                         # Delivery Optimization -- Performs content delivery optimization tasks
   "DPMService"			  # Dell Peripheral Manager Service
   "DPMService"                    # Dell Peripheral Manager Service
   "DPS"                           # Diagnostic Policy Service -- The Diagnostic Policy Service enables problem detection, troubleshooting and resolution for Windows components.  If this service is stopped, diagnostics will no longer function.
@@ -251,6 +249,9 @@ else {
 
 
 $disable_services = @(
+  "DoSvc"                         # Listens on port 7680 TCP! -- Delivery Optimization -- Performs content delivery optimization tasks -- This service is part of Windows Update Delivery Optimization (WUDO), which helps distribute updates and apps more efficiently by using peer-to-peer sharing.
+  "CDPSvc"                        # Listens on port 5040 TCP!  -- Connected Devices Platform Service -- This service is used for Connected Devices Platform scenarios
+  "CDPUserSvc_*"		  # Additional service for CDPSvs Connected Devices Platform User Service -- This user service is used for Connected Devices Platform scenarios
   "LanmanServer"                  # Server
   "LanmanWorkstation"             # Workstation
   "tvnserver"			  # TightVNC Server
@@ -276,7 +277,6 @@ $stop_services = @(
   "cplspcon"                      # Intel(R) Content Protection HDCP Service -- Intel(R) Content Protection HDCP Service - enables communication with Content Protection HDCP HW
   "dcsvc"                         # Declared Configuration(DC) service
   "DisplayEnhancementService"     # Display Enhancement Service -- A service for managing display enhancement such as brightness control.
-  "DoSvc"                         # Delivery Optimization -- Performs content delivery optimization tasks
   "DSAUpdateService"              # Intel(R) Driver & Support Assistant Updater -- Keep Intel(R) Driver & Support Assistant up-to-date
   "DsmSvc"                        # Device Setup Manager -- Enables the detection, download and installation of device-related software. If this service is disabled, devices may be configured with outdated software, and may not work correctly.
   "fdPHost"                       # Function Discovery Provider Host -- The FDPHOST service hosts the Function Discovery (FD) network discovery providers. These FD providers supply network discovery services for the Simple Services Discovery Protocol (SSDP) and Web Services � Discovery (WS-D) protocol. Stopping or disabling the FDPHOST service will disable network discovery for these protocols when using FD. When this service is unavailable, network services using FD and relying on these discovery protocols will be unable to find network devices or resources.

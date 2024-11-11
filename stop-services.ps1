@@ -23,6 +23,8 @@ $auto_services = @(
 )
 
 $manual_services = @(
+  "LanmanServer"                  # Server      - if we disable server, other services (such as Distributed Transaction Coordinator) will give errors to the event log
+  "LanmanWorkstation"             # Workstation - if we disable workstation, other services will give errors to the event log
   "NVIDIA Share"
   "AarSvc_*"                      # ????
   "AdobeARMservice"               # Adobe Acrobat Update Service -- Adobe Acrobat Updater keeps your Adobe software up to date.
@@ -252,8 +254,6 @@ $disable_services = @(
   "DoSvc"                         # Listens on port 7680 TCP! -- Delivery Optimization -- Performs content delivery optimization tasks -- This service is part of Windows Update Delivery Optimization (WUDO), which helps distribute updates and apps more efficiently by using peer-to-peer sharing.
   "CDPSvc"                        # Listens on port 5040 TCP!  -- Connected Devices Platform Service -- This service is used for Connected Devices Platform scenarios
   "CDPUserSvc_*"		  # Additional service for CDPSvs Connected Devices Platform User Service -- This user service is used for Connected Devices Platform scenarios
-  "LanmanServer"                  # Server
-  "LanmanWorkstation"             # Workstation
   "tvnserver"			  # TightVNC Server
   "RemoteAccess"                  # Routing and Remote Access
   "RemoteRegistry"                # Remote Registry

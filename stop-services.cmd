@@ -9,4 +9,4 @@ if defined FOUND (
   set POWERSHELLEXECUTABLE="powershell.exe"
 )
 
-%POWERSHELLEXECUTABLE% -file "%~dp0%stop-services.ps1"
+%POWERSHELLEXECUTABLE% -Command "%~dp0%stop-services.ps1" -audio $False -print $False

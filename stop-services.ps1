@@ -1,11 +1,32 @@
-#
-# Stop and Disable Windows Services v1.0
-# Copyright 2024 Maxim Masiutin. All rights reserved
-#
+<# 
+.SYNOPSIS
+  Stop and Disable Windows Services v1.0
+
+  Copyright 2024 Maxim Masiutin. All rights reserved
+
+.DESCRIPTION
+  This script disables and stops certain Windows services.
+
+.PARAMETER audio
+  If this parameter is false, services related to audio will be switched to Manual startup type and stopped. Otherwise, if this parameter is True, audio services startup type will be Automatic, such services will be started. Defaults to True.
+
+.PARAMETER print
+  If this parameter is false, services related to print will be switched to Manual startup type and stopped. Otherwise, if this parameter is True, print services startup type will be Automatic, such services will be started. Defaults to True.
 
 
-$audio = $true;
-$print = $true;
+.EXAMPLE 
+  ./stop-services.ps1 -audio False 
+
+  This example stops audio-related services and sets them to Manual startup type, and also modifies other services (see the code below for the list of services and the action upon them).
+
+#>
+
+
+
+param( 
+  [bool]$audio = $true, 
+  [bool]$print = $true 
+)
 
 
 # Note: the following services should be automatically started to avoid errors such as "Volume Shadow Copy Service error: Unexpected error calling routine IVssAsrWriterBackup::GetDiskComponents"
@@ -18,7 +39,7 @@ $print = $true;
 # - VSS 			Volume Shadow Copy Service
 # - vds 			Virtual Disk Service - needed for Disk Management
 
-
+# The "auto" list is empty, but we may fill it later, depending on our options
 $auto_services = @(
 )
 
@@ -78,7 +99,6 @@ $manual_services = @(
   "DisplayEnhancementService"			# Display Enhancement Service -- A service for managing display enhancement such as brightness control.
   "dmwappushservice"				# WAP Push Message Routing Service (see known issues)
   "DPMService"					# Dell Peripheral Manager Service
-  "DPMService"					# Dell Peripheral Manager Service
   "DPS" 					# Diagnostic Policy Service -- The Diagnostic Policy Service enables problem detection, troubleshooting and resolution for Windows components.	If this service is stopped, diagnostics will no longer function.
   "dptftcs"					# Intel(R) Dynamic Tuning Technology Telemetry Service
   "DSAService"
@@ -88,7 +108,7 @@ $manual_services = @(
   "DusmSvc"
   "edgeupdate"					# Microsoft Edge Update Service (edgeupdate) -- Keeps your Microsoft software up to date. If this service is disabled or stopped, your Microsoft software will not be kept up to date, meaning security vulnerabilities that may arise cannot be fixed and features may not work. This service uninstalls itself when there is no Microsoft software using it.
   "esifsvc"
-  "ESRV_SVC_QUEENCREEK" 			# Energy Server Service queencreek -- Intel(r) Energy Checker SDK. ESRV Service queencreek
+  "ESRV_SVC_QUEENCREEK" 			# Maxim: this service is CPU-hungry, it makes lots of page faults! Energy Server Service queencreek -- Intel(r) Energy Checker SDK. ESRV Service queencreek
   "fdPHost"					# Function Discovery Provider Host -- The FDPHOST service hosts the Function Discovery (FD) network discovery providers. These FD providers supply network discovery services for the Simple Services Discovery Protocol (SSDP) and Web Services Discovery (WS-D) protocol. Stopping or disabling the FDPHOST service will disable network discovery for these protocols when using FD. When this service is unavailable, network services using FD and relying on these discovery protocols will be unable to find network devices or resources.
   "FDResPub"					# Function Discovery Resource Publication -- Publishes this computer and resources attached to this computer so they can be discovered over the network.	If this service is stopped, network resources will no longer be published and they will not be discovered by other computers on the network.
   "FontCache"					# Windows Font Cache Service -- Optimizes performance of applications by caching commonly used font data. Applications will start this service if it is not already running. It can be disabled, though doing so will degrade application performance.
@@ -324,43 +344,64 @@ Start-Sleep -Seconds 2
 
 foreach ($serviceName in $auto_services) {
   $serviceHandle = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-  if ($serviceHandle -eq $null) {
-	Write-Output "Service $serviceName does not exist"
+  if ($null -eq $serviceHandle) {
+    Write-Output "Service $serviceName does not exist"
   }
   else {
-	$resolvedName = $serviceHandle.Name
-	Write-Output "Trying to change to Automatic the service $resolvedName ($serviceName) and start it it"
-	Set-Service -Name $resolvedName -StartupType automatic
-	Get-Service -Name $resolvedName | Where-Object { $_.Status -eq "Stopped" } | Start-Service
+    $resolvedName = $serviceHandle.Name
+    Write-Output "Trying to change to Automatic the service $resolvedName ($serviceName) and start it it"
+    Set-Service -Name $resolvedName -StartupType automatic
+    Get-Service -Name $resolvedName | Where-Object { $_.Status -eq "Stopped" } | Start-Service
   }
 }
 
 foreach ($serviceName in $manual_services) {
   $serviceHandle = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-  if ($serviceHandle -eq $null) {
-	Write-Output "Service $serviceName does not exist"
+  if ($null -eq $serviceHandle) {
+    Write-Output "Service $serviceName does not exist (wanted to change its startup type to Manual and stop it)"
   }
   else {
-	$resolvedName = $serviceHandle.Name
-	Write-Output "Trying to change to Manual the service $resolvedName ($serviceName) and stop it"
-	Set-Service -Name $resolvedName -StartupType manual
-	Get-Service -Name $resolvedName | Where-Object { $_.Status -eq "Running" } | Stop-Service -Force -NoWait
+    $resolvedName = $serviceHandle.Name
+    Write-Output "Trying to change to Manual the service $resolvedName ($serviceName) and stop it"
+    Set-Service -Name $resolvedName -StartupType manual
+    Get-Service -Name $resolvedName | Where-Object { $_.Status -eq "Running" } | Stop-Service -Force -NoWait
   }
 }
 
-foreach ($service in $disable_services) {
-  Write-Output "Trying to disable the service $service"
-  Get-Service -Name $service | Set-Service -StartupType disabled
-  Get-Service -Name $service | Where-Object { $_.Status -eq "Running" } | Stop-Service -Force -NoWait
+foreach ($serviceName in $disable_services) {
+  $serviceHandle = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+  if ($null -eq $serviceHandle) {
+    Write-Output "Service $serviceName does not exist (wanted to Disable it and stop it)"
+  }
+  else {
+    $resolvedName = $serviceHandle.Name
+    Write-Output "Trying to disable the service $resolvedName ($serviceName)"
+    Get-Service -Name $resolvedName | Set-Service -StartupType disabled
+    Get-Service -Name $resolvedName | Where-Object { $_.Status -eq "Running" } | Stop-Service -Force -NoWait
+  }
 }
 
-foreach ($service in $stop_services) {
-  Write-Output "Trying to stop $service"
-  Get-Service -Name $service | Where-Object { $_.Status -eq "Running" } | Stop-Service -Force -NoWait
+foreach ($serviceName in $stop_services) {
+  $serviceHandle = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+  if ($null -eq $serviceHandle) {
+    Write-Output "Service $serviceName does not exist (wanted to stop it)"
+  }
+  else {
+    $resolvedName = $serviceHandle.Name
+    Write-Output "Trying to stop service $resolvedName ($serviceName)"
+    Get-Service -Name $serviceName | Where-Object { $_.Status -eq "Running" } | Stop-Service -Force -NoWait
+  }
 }
 
-foreach ($service in $start_services) {
-  Write-Output "Trying to start $service"
-  Get-Service -Name $service | Where-Object { $_.Status -eq "Stopped" } | Start-Service
+foreach ($serviceName in $start_services) {
+  $serviceHandle = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+  if ($null -eq $serviceHandle) {
+    Write-Output "Service $serviceName does not exist (wanted to start it)"
+  }
+  else {
+    $resolvedName = $serviceHandle.Name
+    Write-Output "Trying to start service $resolvedName ($serviceName)"
+    Get-Service -Name $serviceName | Where-Object { $_.Status -eq "Stopped" } | Start-Service
+  }
 }
 

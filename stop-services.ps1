@@ -191,7 +191,6 @@ $manual_services = @(
   "swprv"					# Microsoft Software Shadow Copy Provider -- Maxim: if we disable this service, Volume Shadow Copy will stop working properly -- Manages software-based volume shadow copies taken by the Volume Shadow Copy service. If this service is stopped, software-based volume shadow copies cannot be managed. If this service is disabled, any services that explicitly depend on it will fail to start.
   "SysMain"
   "SystemEventsBroker"
-  "SystemUsageReportSvc_QUEENCREEK"
   "TabletInputService"
   "TbtHostControllerService"
   "TextInputManagementService"			# Text Input Management Service -- Enables text input, expressive input, touch keyboard, handwriting, and IMEs.
@@ -281,6 +280,7 @@ $disable_services = @(
   "RemoteAccess"				# Routing and Remote Access
   "RemoteRegistry"				# Remote Registry
   "SharedAccess"				# Internet Connection Sharing (ICS)
+  "SystemUsageReportSvc_QUEENCREEK"		# Maxim: this service makes lots of page faults
   "WinRM"					# Windows Remote Management (WS-Management) -- Windows Remote Management (WinRM) service implements the WS-Management protocol for remote management. WS-Management is a standard web services protocol used for remote software and hardware management. The WinRM service listens on the network for WS-Management requests and processes them. The WinRM Service needs to be configured with a listener using winrm.cmd command line tool or through Group Policy in order for it to listen over the network. The WinRM service provides access to WMI data and enables event collection. Event collection and subscription to events require that the service is running. WinRM messages use HTTP and HTTPS as transports. The WinRM service does not depend on IIS but is preconfigured to share a port with IIS on the same machine.  The WinRM service reserves the /wsman URL prefix. To prevent conflicts with IIS, administrators should ensure that any websites hosted on IIS do not use the /wsman URL prefix.
 )
 

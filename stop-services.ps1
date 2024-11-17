@@ -39,8 +39,9 @@ param(
 # - VSS 			Volume Shadow Copy Service
 # - vds 			Virtual Disk Service - needed for Disk Management
 
-# The "auto" list is empty, but we may fill it later, depending on our options
+# The "auto" list may be augmented later, depending on our options
 $auto_services = @(
+  "LanmanWorkstation"				# (Workstation) Maxim: if we disable workstation, other services will give errors to the event log; if it is Manual, it is not started automatically
 )
 
 $manual_services = @(
@@ -136,7 +137,6 @@ $manual_services = @(
   "ipfsvc"					# Intel(R) Innovation Platform Framework Service
   "jhi_service" 				# Intel(R) Dynamic Application Loader Host Interface Service -- Intel(R) Dynamic Application Loader Host Interface Service - Allows applications to access the local Intel (R) DAL
   "LanmanServer"				# Server		- Maxim: if we disable server, other services (such as Distributed Transaction Coordinator) will give errors to the event log
-  "LanmanWorkstation"				# Workstation - if we disable workstation, other services will give errors to the event log
   "lfsvc"					# Geolocation Service
   "LightingService"				# ASUS AURA SYNC lighting service
   "lmhosts"

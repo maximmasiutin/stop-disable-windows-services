@@ -345,13 +345,27 @@ Start-Sleep -Seconds 2
 foreach ($serviceName in $auto_services) {
   $serviceHandle = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
   if ($null -eq $serviceHandle) {
-    Write-Output "Service $serviceName does not exist"
+    Write-Output "Service $serviceName does not exist (wanted to change its startup type to Automatic and start it)."
   }
   else {
+    Write-Output "Trying to change startup type to Automatic of the service $resolvedName ($serviceName) and start it..."
     $resolvedName = $serviceHandle.Name
-    Write-Output "Trying to change to Automatic the service $resolvedName ($serviceName) and start it it"
-    Set-Service -Name $resolvedName -StartupType automatic
-    Get-Service -Name $resolvedName | Where-Object { $_.Status -eq "Stopped" } | Start-Service
+    $serviceStartupType = $serviceHandle.StartupType
+    $serviceStatus = $serviceHandle.Status
+    if ($serviceStartupType -in @("Automatic", "AutomaticDelayedStart")) {
+      Write-Output "The service already has startup type '$serviceStartupType'."
+    } else
+    {
+      Set-Service -Name $resolvedName -StartupType Automatic
+    }
+    if ($serviceStatus -eq "Stopped")
+    { 
+      Start-Service -Name $resolvedName
+    } elseif ($serviceStatus -eq "Running") {
+      Write-Output "The service is already running."
+    } else {
+      Write-Output "The service status is $serviceStatus, would not start it."
+    }
   }
 }
 

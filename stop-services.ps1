@@ -1,4 +1,4 @@
-<# 
+<#
 .SYNOPSIS
   Stop and Disable Windows Services v1.0
 
@@ -8,26 +8,26 @@
   This script disables and stops certain Windows services.
 
 .PARAMETER audio
-  If this parameter is false, services related to audio will be switched to Manual startup type and stopped. Otherwise, if this parameter is True, audio services startup type will be Automatic, such services will be started. Defaults to True.
+  If this parameter is $False, services related to audio will be switched to Manual startup type and stopped. Otherwise, if this parameter is True, audio services startup type will be Automatic, such services will be started. Defaults to $True.
 
 .PARAMETER print
-  If this parameter is false, services related to print will be switched to Manual startup type and stopped. Otherwise, if this parameter is True, print services startup type will be Automatic, such services will be started. Defaults to True.
+  If this parameter is $False, services related to print will be switched to Manual startup type and stopped. Otherwise, if this parameter is True, print services startup type will be Automatic, such services will be started. Defaults to $True.
 
+.PARAMETER pause
+  If this parameter is true, the script will prompt for the user to press any key before it exits. Defaults to $False.
 
-.EXAMPLE 
-  ./stop-services.ps1 -audio False 
+.EXAMPLE
+  ./stop-services.ps1 -audio $False -pause $True
 
   This example stops audio-related services and sets them to Manual startup type, and also modifies other services (see the code below for the list of services and the action upon them).
-
 #>
 
+param(
+  [bool]$audio = $true,
+  [bool]$print = $true,
+  [bool]$pause = $false
 
-
-param( 
-  [bool]$audio = $true, 
-  [bool]$print = $true 
 )
-
 
 # Note: the following services should be automatically started to avoid errors such as "Volume Shadow Copy Service error: Unexpected error calling routine IVssAsrWriterBackup::GetDiskComponents"
 # - COMSysApp			COM+ System Application Service
@@ -354,16 +354,17 @@ foreach ($serviceName in $auto_services) {
     $serviceStatus = $serviceHandle.Status
     if ($serviceStartupType -in @("Automatic", "AutomaticDelayedStart")) {
       Write-Output "The service already has startup type '$serviceStartupType'."
-    } else
-    {
+    }
+    else {
       Set-Service -Name $resolvedName -StartupType Automatic
     }
-    if ($serviceStatus -eq "Stopped")
-    { 
+    if ($serviceStatus -eq "Stopped") {
       Start-Service -Name $resolvedName
-    } elseif ($serviceStatus -eq "Running") {
+    }
+    elseif ($serviceStatus -eq "Running") {
       Write-Output "The service is already running."
-    } else {
+    }
+    else {
       Write-Output "The service status is $serviceStatus, would not start it."
     }
   }
@@ -419,3 +420,7 @@ foreach ($serviceName in $start_services) {
   }
 }
 
+if ($pause) {
+  Write-Output "Press any key to continue..."
+  $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+}

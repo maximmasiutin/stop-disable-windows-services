@@ -8,19 +8,27 @@ If running the script gives an error that the script cannot be loaded because ru
 
 The PowerShell script also has the following boolean parameters:
 
-### -audio
+## -audio
 
 If this parameter is `$False`, services related to audio will be switched to **Manual** startup type and stopped. Otherwise, if this parameter is `$True`, audio services' startup type will be **Automatic**, and such services will be started. Defaults to `$True`.
 
-### -print
+## -print
 
 If this parameter is `$False`, services related to printing will be switched to **Manual** startup type and stopped. Otherwise, if this parameter is `$True`, print services' startup type will be **Automatic**, and such services will be started. Defaults to `$True`.
 
-### -pause
+## -pause
 
 If this parameter is `$True`, the script will prompt the user to press any key before it exits. Defaults to `$False`.
+
+## -workstation
+
+If this parameter is `$False`, services related to workstation will be switched to **Manual** startup type and stopped. Otherwise, if this parameter is `$True`, workstation services' startup type will be **Automatic**, and such services will be started. Defaults to `$True`.
+
+## -brokers
+
+If this parameter is `$False`, services related to brokers will be switched to **Manual** startup type and stopped. Otherwise, if this parameter is `$True`, broker services' startup type will be **Automatic**, and such services will be started. Defaults to `$True`.
 
 **Example:**
 
 ```powershell
-./stop-services.ps1 -audio $False -pause $True
+./stop-services.ps1 -audio $False -pause $True -workstation $True -brokers $True

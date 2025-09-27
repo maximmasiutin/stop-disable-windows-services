@@ -33,9 +33,62 @@ param(
     [bool]$print = $true,
     [bool]$pause = $false,
     [bool]$brokers = $true,
-    [bool]$workstation = $true
-
+    [bool]$workstation = $true,
+    [switch]$WhatIf,
+    [switch]$Verbose,
+    [string]$LogFile = ""
 )
+
+# Check if running with administrator privileges
+function Test-Administrator {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+if (-not (Test-Administrator)) {
+    Write-Error "This script requires Administrator privileges. Please run PowerShell as Administrator."
+    if ($pause) {
+        Write-Host "Press any key to continue..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    }
+    exit 1
+}
+
+# Initialize logging
+$script:LogEntries = @()
+function Write-Log {
+    param(
+        [string]$Message,
+        [string]$Level = "Info"
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "[$timestamp] [$Level] $Message"
+    $script:LogEntries += $logEntry
+
+    switch ($Level) {
+        "Error" { Write-Error $Message }
+        "Warning" { Write-Warning $Message }
+        "Info" { Write-Host $Message }
+        "Verbose" { if ($Verbose) { Write-Host $Message -ForegroundColor Gray } }
+    }
+}
+
+# Save log to file if specified
+function Save-Log {
+    if ($LogFile -ne "") {
+        try {
+            $script:LogEntries | Out-File -FilePath $LogFile -Append -Encoding UTF8
+            Write-Log "Log saved to: $LogFile" "Info"
+        }
+        catch {
+            Write-Log "Failed to save log to $LogFile`: $($_.Exception.Message)" "Warning"
+        }
+    }
+}
+
+Write-Log "=== Windows Service Management Script Started ===" "Info"
+Write-Log "Parameters: audio=$audio, print=$print, workstation=$workstation, brokers=$brokers, pause=$pause, WhatIf=$WhatIf" "Info"
 
 # Note: the following services should be automatically started to avoid errors such as "Volume Shadow Copy Service error: Unexpected error calling routine IVssAsrWriterBackup::GetDiskComponents"
 # - COMSysApp - COM+ System Application Service: Provides support for COM+ components. If this service is stopped, most COM+-based components will not function properly.
@@ -334,31 +387,89 @@ function Set-ServiceStartupType {
         [string]$serviceName,
         [string]$startupType
     )
+
+    if ([string]::IsNullOrWhiteSpace($serviceName)) {
+        Write-Log "Invalid service name provided (empty or null)" "Warning"
+        return $false
+    }
+
+    if ($startupType -notin @("Automatic", "Manual", "Disabled")) {
+        Write-Log "Invalid startup type '$startupType' for service '$serviceName'" "Warning"
+        return $false
+    }
+
     try {
+        # Handle wildcard service names
+        if ($serviceName.Contains("*")) {
+            $services = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($services) {
+                $serviceCount = 0
+                foreach ($service in $services) {
+                    if (Set-ServiceStartupType -serviceName $service.Name -startupType $startupType) {
+                        $serviceCount++
+                    }
+                }
+                Write-Log "Processed $serviceCount services matching pattern '$serviceName'" "Info"
+                return $serviceCount -gt 0
+            } else {
+                Write-Log "No services found matching pattern '$serviceName'" "Verbose"
+                return $false
+            }
+        }
+
         $serviceHandle = Get-Service -Name $serviceName -ErrorAction Stop
         if ($null -ne $serviceHandle) {
-            Write-Output "Trying to change startup type to $startupType of the service $serviceHandle.Name ($serviceName)..."
+            if ($WhatIf) {
+                Write-Log "[WHATIF] Would change startup type to $startupType for service $($serviceHandle.Name) ($serviceName)" "Info"
+                return $true
+            }
+
+            Write-Log "Changing startup type to $startupType for service $($serviceHandle.Name) ($serviceName)..." "Verbose"
             Set-Service -Name $serviceHandle.Name -StartupType $startupType -ErrorAction Stop
-            Write-Output "$serviceHandle.Name startup type changed to $startupType."
+            Write-Log "$($serviceHandle.Name) startup type changed to $startupType." "Info"
+            return $true
         }
         else {
-            Write-Output "Service $serviceName does not exist."
+            Write-Log "Service $serviceName handle is null" "Warning"
+            return $false
         }
     }
     catch {
         if ($_.Exception.Message -like "*Access is denied*" -or $_.Exception.Message -like "*PermissionDenied*") {
-            Write-Output "Permission denied for $serviceName. Attempting with 'net' commands."
-            switch ($startupType) {
-                "Automatic" { Invoke-Expression "sc config $serviceName start= auto" }
-                "Manual" { Invoke-Expression "sc config $serviceName start= demand" }
-                "Disabled" { Invoke-Expression "sc config $serviceName start= disabled" }
+            Write-Log "Permission denied for $serviceName. Attempting with 'sc' command." "Warning"
+            try {
+                if ($WhatIf) {
+                    Write-Log "[WHATIF] Would execute sc command for $serviceName" "Info"
+                    return $true
+                }
+
+                $scCommand = switch ($startupType) {
+                    "Automatic" { "sc config `"$serviceName`" start= auto" }
+                    "Manual" { "sc config `"$serviceName`" start= demand" }
+                    "Disabled" { "sc config `"$serviceName`" start= disabled" }
+                }
+
+                $result = Invoke-Expression $scCommand 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Log "Successfully changed $serviceName startup type using sc command" "Info"
+                    return $true
+                } else {
+                    Write-Log "sc command failed for $serviceName`: $result" "Error"
+                    return $false
+                }
+            }
+            catch {
+                Write-Log "sc command also failed for $serviceName`: $($_.Exception.Message)" "Error"
+                return $false
             }
         }
         elseif ($_.Exception.Message -like "*Cannot find any service with service name*") {
-            Write-Output "Service $serviceName does not exist."
+            Write-Log "Service $serviceName does not exist." "Verbose"
+            return $false
         }
         else {
-            Write-Error "Failed to handle $($serviceName): $($_.Exception.Message)"
+            Write-Log "Failed to handle $serviceName`: $($_.Exception.Message)" "Error"
+            return $false
         }
     }
 }
@@ -368,122 +479,257 @@ function Manage-Service {
         [string]$serviceName,
         [string]$action
     )
+
+    if ([string]::IsNullOrWhiteSpace($serviceName)) {
+        Write-Log "Invalid service name provided (empty or null)" "Warning"
+        return $false
+    }
+
+    if ($action -notin @("Start", "Stop")) {
+        Write-Log "Invalid action '$action' for service '$serviceName'. Must be 'Start' or 'Stop'" "Warning"
+        return $false
+    }
+
     try {
+        # Handle wildcard service names
+        if ($serviceName.Contains("*")) {
+            $services = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($services) {
+                $serviceCount = 0
+                foreach ($service in $services) {
+                    if (Manage-Service -serviceName $service.Name -action $action) {
+                        $serviceCount++
+                    }
+                }
+                Write-Log "Processed $serviceCount services matching pattern '$serviceName'" "Info"
+                return $serviceCount -gt 0
+            } else {
+                Write-Log "No services found matching pattern '$serviceName'" "Verbose"
+                return $false
+            }
+        }
+
         $serviceHandle = Get-Service -Name $serviceName -ErrorAction Stop
         if ($null -ne $serviceHandle) {
             switch ($action) {
                 "Start" {
                     if ($serviceHandle.Status -eq "Stopped") {
+                        if ($WhatIf) {
+                            Write-Log "[WHATIF] Would start service $($serviceHandle.Name)" "Info"
+                            return $true
+                        }
+
+                        Write-Log "Starting service $($serviceHandle.Name)..." "Verbose"
                         Start-Service -Name $serviceHandle.Name -ErrorAction Stop
-                        Write-Output "$serviceHandle.Name started successfully."
+
+                        # Wait a moment and verify the service started
+                        Start-Sleep -Milliseconds 500
+                        $updatedService = Get-Service -Name $serviceHandle.Name
+                        if ($updatedService.Status -eq "Running") {
+                            Write-Log "$($serviceHandle.Name) started successfully." "Info"
+                            return $true
+                        } else {
+                            Write-Log "$($serviceHandle.Name) start initiated but status is: $($updatedService.Status)" "Warning"
+                            return $false
+                        }
                     }
                     else {
-                        Write-Output "The service $($serviceHandle.Name) is already running."
+                        Write-Log "The service $($serviceHandle.Name) is already running." "Verbose"
+                        return $true
                     }
                 }
                 "Stop" {
                     if ($serviceHandle.Status -eq "Running") {
+                        if ($WhatIf) {
+                            Write-Log "[WHATIF] Would stop service $($serviceHandle.Name)" "Info"
+                            return $true
+                        }
+
+                        Write-Log "Stopping service $($serviceHandle.Name)..." "Verbose"
                         Stop-Service -Name $serviceHandle.Name -ErrorAction Stop -Force -NoWait
-                        Write-Output "$serviceHandle.Name stopped successfully."
+                        Write-Log "$($serviceHandle.Name) stop initiated." "Info"
+                        return $true
                     }
                     else {
-                        Write-Output "The service $($serviceHandle.Name) is not running."
+                        Write-Log "The service $($serviceHandle.Name) is not running." "Verbose"
+                        return $true
                     }
                 }
             }
         }
         else {
-            Write-Output "Service $serviceName does not exist."
+            Write-Log "Service $serviceName handle is null" "Warning"
+            return $false
         }
     }
     catch {
         if ($_.Exception.Message -like "*Access is denied*" -or $_.Exception.Message -like "*PermissionDenied*") {
-            Write-Output "Permission denied for $serviceName. Attempting with 'net' commands."
-            switch ($action) {
-                "Start" { Invoke-Expression "net start $serviceName" }
-                "Stop" { Invoke-Expression "net stop $serviceName" }
+            Write-Log "Permission denied for $serviceName. Attempting with 'net' command." "Warning"
+            try {
+                if ($WhatIf) {
+                    Write-Log "[WHATIF] Would execute net command for $serviceName" "Info"
+                    return $true
+                }
+
+                $netCommand = switch ($action) {
+                    "Start" { "net start `"$serviceName`"" }
+                    "Stop" { "net stop `"$serviceName`" /y" }
+                }
+
+                $result = Invoke-Expression $netCommand 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Log "Successfully executed net command for $serviceName" "Info"
+                    return $true
+                } else {
+                    Write-Log "net command failed for $serviceName`: $result" "Error"
+                    return $false
+                }
+            }
+            catch {
+                Write-Log "net command also failed for $serviceName`: $($_.Exception.Message)" "Error"
+                return $false
             }
         }
         elseif ($_.Exception.Message -like "*Cannot find any service with service name*") {
-            Write-Output "Service $serviceName does not exist."
+            Write-Log "Service $serviceName does not exist." "Verbose"
+            return $false
         }
         else {
-            Write-Error "Failed to handle $($serviceName): $($_.Exception.Message)"
+            Write-Log "Failed to handle $serviceName`: $($_.Exception.Message)" "Error"
+            return $false
         }
     }
 }
 
+# Initialize counters for summary
+$script:ProcessedServices = @{
+    Auto = 0
+    Manual = 0
+    Disabled = 0
+    Started = 0
+    Stopped = 0
+    Skipped = 0
+    Failed = 0
+}
+
+function Process-ServiceList {
+    param(
+        [array]$ServiceList,
+        [string]$Operation,
+        [string]$StartupType = "",
+        [string]$Action = ""
+    )
+
+    if ($ServiceList.Count -eq 0) {
+        Write-Log "No services to process for operation: $Operation" "Verbose"
+        return
+    }
+
+    Write-Log "Processing $($ServiceList.Count) services for operation: $Operation" "Info"
+
+    $processedCount = 0
+    foreach ($serviceName in $ServiceList) {
+        $processedCount++
+        Write-Progress -Activity "Processing Services" -Status "$Operation ($processedCount/$($ServiceList.Count))" -PercentComplete (($processedCount / $ServiceList.Count) * 100)
+
+        $success = $true
+
+        if ($StartupType -ne "") {
+            $result = Set-ServiceStartupType -serviceName $serviceName -startupType $StartupType
+            if ($result) {
+                $script:ProcessedServices[$StartupType.Replace("Automatic", "Auto")]++
+            } else {
+                $script:ProcessedServices.Failed++
+                $success = $false
+            }
+        }
+
+        if ($Action -ne "" -and $success) {
+            $result = Manage-Service -serviceName $serviceName -action $Action
+            if ($result) {
+                $script:ProcessedServices[$Action + "ed"]++
+            } else {
+                $script:ProcessedServices.Failed++
+            }
+        }
+    }
+
+    Write-Progress -Activity "Processing Services" -Completed
+}
+
 if ($audio -eq $true) {
-    Write-Output "Setting up audio services as automatic..."
+    Write-Log "Setting up audio services as automatic..." "Info"
     $auto_services += $audio_services
 }
 else {
-    Write-Output "Setting up audio services as manual..."
+    Write-Log "Setting up audio services as manual..." "Info"
     $manual_services += $audio_services
     $stop_services += $audio_services
 }
 
 if ($print -eq $true) {
-    Write-Output "Setting up print services as automatic..."
+    Write-Log "Setting up print services as automatic..." "Info"
     $auto_services += $print_services
 }
 else {
-    Write-Output "Setting up print services as manual..."
+    Write-Log "Setting up print services as manual..." "Info"
     $manual_services += $print_services
     $stop_services += $print_services
 }
 
 if ($workstation -eq $true) {
-    Write-Output "Setting up workstation services as automatic..."
+    Write-Log "Setting up workstation services as automatic..." "Info"
     $auto_services += $workstation_services
 }
 else {
-    Write-Output "Setting up workstation services as manual..."
+    Write-Log "Setting up workstation services as manual..." "Info"
     $manual_services += $workstation_services
     $stop_services += $workstation_services
 }
 
 if ($brokers -eq $true) {
-    Write-Output "Setting up broker services as automatic..."
+    Write-Log "Setting up broker services as automatic..." "Info"
     $auto_services += $broker_services
 }
 else {
-    Write-Output "Setting up broker services as manual..."
+    Write-Log "Setting up broker services as manual..." "Info"
     $manual_services += $broker_services
     $stop_services += $broker_services
 }
 
+# Process services with enhanced tracking
+Process-ServiceList -ServiceList $auto_services -Operation "Automatic Services" -StartupType "Automatic" -Action "Start"
+Process-ServiceList -ServiceList $manual_services -Operation "Manual Services" -StartupType "Manual" -Action "Stop"
+Process-ServiceList -ServiceList $disable_services -Operation "Disabled Services" -StartupType "Disabled" -Action "Stop"
+Process-ServiceList -ServiceList $stop_services -Operation "Services to Stop" -Action "Stop"
+Process-ServiceList -ServiceList $start_services -Operation "Services to Start" -Action "Start"
 
-# Process automatic services
-foreach ($serviceName in $auto_services) {
-    Set-ServiceStartupType -serviceName $serviceName -startupType "Automatic"
-    Manage-Service -serviceName $serviceName -action "Start"
-}
+# Display summary
+Write-Log "=== Service Management Summary ===" "Info"
+Write-Log "Automatic services configured: $($script:ProcessedServices.Auto)" "Info"
+Write-Log "Manual services configured: $($script:ProcessedServices.Manual)" "Info"
+Write-Log "Disabled services configured: $($script:ProcessedServices.Disabled)" "Info"
+Write-Log "Services started: $($script:ProcessedServices.Started)" "Info"
+Write-Log "Services stopped: $($script:ProcessedServices.Stopped)" "Info"
+Write-Log "Failed operations: $($script:ProcessedServices.Failed)" "Info"
+Write-Log "=== End Summary ===" "Info"
 
-# Process manual services
-foreach ($serviceName in $manual_services) {
-    Set-ServiceStartupType -serviceName $serviceName -startupType "Manual"
-    Manage-Service -serviceName $serviceName -action "Stop"
-}
-
-# Process disabled services
-foreach ($serviceName in $disable_services) {
-    Set-ServiceStartupType -serviceName $serviceName -startupType "Disabled"
-    Manage-Service -serviceName $serviceName -action "Stop"
-}
-
-# Process services to be stopped
-foreach ($serviceName in $stop_services) {
-    Manage-Service -serviceName $serviceName -action "Stop"
-}
-
-# Process services to be started
-foreach ($serviceName in $start_services) {
-    Manage-Service -serviceName $serviceName -action "Start"
-}
+# Save log if specified
+Save-Log
 
 # Pause execution if the $pause flag is set
 if ($pause) {
-    Write-Output "Press any key to continue..."
+    Write-Log "=== Script completed. Press any key to continue... ===" "Info"
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+}
+
+Write-Log "=== Windows Service Management Script Completed ===" "Info"
+
+# Exit with appropriate code
+if ($script:ProcessedServices.Failed -gt 0) {
+    Write-Log "Script completed with $($script:ProcessedServices.Failed) failed operations" "Warning"
+    exit 2
+} else {
+    Write-Log "Script completed successfully" "Info"
+    exit 0
 }

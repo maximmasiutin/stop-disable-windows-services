@@ -34,15 +34,15 @@ The script manages **over 150 Windows services** across these categories:
 
 Controls audio-related services (AudioSrv, AudioEndpointBuilder, ShellHWDetection):
 
-- `$True` (default): Audio services set to **Automatic** startup and started
-- `$False`: Audio services set to **Manual** startup and stopped
+- `$True` (default in PowerShell): Audio services set to **Automatic** startup and started
+- `$False` (default in CMD wrapper): Audio services set to **Manual** startup and stopped
 
 ### -print
 
 Controls printing and imaging services (Spooler, PrintNotify, DeviceInstall, etc.):
 
-- `$True` (default): Print services set to **Automatic** startup and started
-- `$False`: Print services set to **Manual** startup and stopped
+- `$True` (default in PowerShell): Print services set to **Automatic** startup and started
+- `$False` (default in CMD wrapper): Print services set to **Manual** startup and stopped
 
 ### -workstation
 

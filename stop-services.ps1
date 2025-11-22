@@ -180,9 +180,7 @@ $manual_services = @(
     "GamingServicesNet" # Gaming Services Network - Supports network features for gaming services.
     "GoogleChromeElevationService" # Google Chrome Elevation Service - Manages elevation requests for Google Chrome updates.
     "GoogleUpdaterInternalService*" # Google Updater Internal Service - Manages internal updates for Google software.
-    "GoogleUpdaterInternalService*" # Google Updater Internal Service - Manages internal updates for Google software.
     "GoogleUpdaterService*" # Google Updater Service - Manages updates for Google software.
-    "GoogleUpdaterService128.0.6597.0" # Google Updater Service - Manages updates for Google software.
     "gupdate" # Google Update Service - Keeps Google software up to date.
     "HNS" # Host Network Service - Provides support for Windows Virtual Networks.
     "ibtsiva" # Intel Wireless Bluetooth Service - Manages Bluetooth connections for Intel wireless devices.
@@ -359,7 +357,6 @@ $stop_services = @(
     "PimIndexMaintenanceSvc_*" # Personal Information Manager Index Maintenance Service - Manages indexing for personal information data for specific user sessions.
     "RmSvc" # Radio Management Service - Manages radio and airplane mode settings.
     "sacsvr" # Special Administration Console Helper - Allows administrators to remotely access a command prompt using Emergency Management Services.
-    "Spooler" # Print Spooler - Manages print jobs and printer interactions. Stopping this service will prevent printing and printer visibility.
     "StorSvc" # Storage Service - Manages storage settings and external storage expansion.
     "TextInputManagementService" # Text Input Management Service - Enables text input, touch keyboard, handwriting, and IMEs.
     "TimeBrokerSvc" # Time Broker Service - Coordinates execution of background work for WinRT applications. Disabling this service may prevent background work from being triggered.

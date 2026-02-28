@@ -28,14 +28,14 @@
  This example stops audio-related services and sets them to Manual startup type, starts workstation and broker services as Automatic, and prompts the user to press any key before the script exits. Also, it modifies other services as specified in the code.
 #>
 
+[CmdletBinding(SupportsShouldProcess)]
 param(
     [bool]$audio = $true,
     [bool]$print = $true,
     [bool]$pause = $false,
     [bool]$brokers = $true,
     [bool]$workstation = $true,
-    [switch]$WhatIf,
-    [switch]$Verbose,
+    [switch]$Force,
     [string]$LogFile = ""
 )
 
@@ -87,8 +87,52 @@ function Save-Log {
     }
 }
 
+# Function to show security warning and get confirmation
+function Show-SecurityWarning {
+    # Detect WhatIf or Force at the script level
+    if ($Force -or $PSCmdlet.MyInvocation.BoundParameters.ContainsKey('WhatIf')) {
+        return $true
+    }
+
+    Write-Host "`n" -NoNewline
+    Write-Host "****************************************************************" -ForegroundColor Yellow
+    Write-Host "*                      SECURITY WARNING                        *" -ForegroundColor Yellow
+    Write-Host "****************************************************************" -ForegroundColor Yellow
+    Write-Host "This script will modify over 200 Windows services, including:"
+    Write-Host " - Disabling Windows Defender and Web Threat Defense"
+    Write-Host " - Disabling Windows Update and Security Center"
+    Write-Host " - Stopping Telemetry and Diagnostics"
+    Write-Host ""
+    Write-Host "IMPACT ON START MENU SEARCH:" -ForegroundColor Cyan
+    Write-Host "Typing in the Start menu will require an explicit click on the"
+    Write-Host "search field because 'TextInputManagementService' and 'WSearch'"
+    Write-Host "will be stopped/disabled."
+    Write-Host ""
+    Write-Host "It is HIGHLY RECOMMENDED to create a System Restore Point before"
+    Write-Host "proceeding if you haven't already done so."
+    Write-Host ""
+    
+    $confirmation = Read-Host "Do you want to proceed? (Type 'Y' and press Enter to continue)"
+    if ($confirmation -eq 'Y' -or $confirmation -eq 'y') {
+        Write-Log "User confirmed security warning." "Info"
+        return $true
+    }
+    else {
+        Write-Log "User declined security warning. Exiting." "Warning"
+        return $false
+    }
+}
+
 Write-Log "=== Windows Service Management Script Started ===" "Info"
-Write-Log "Parameters: audio=$audio, print=$print, workstation=$workstation, brokers=$brokers, pause=$pause, WhatIf=$WhatIf" "Info"
+Write-Log "Parameters: audio=$audio, print=$print, workstation=$workstation, brokers=$brokers, pause=$pause, Force=$Force, WhatIf=$($PSBoundParameters.ContainsKey('WhatIf'))" "Info"
+
+if (-not (Show-SecurityWarning)) {
+    if ($pause) {
+        Write-Host "Press any key to continue..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    }
+    exit 0
+}
 
 # Note: the following services should be automatically started to avoid errors such as "Volume Shadow Copy Service error: Unexpected error calling routine IVssAsrWriterBackup::GetDiskComponents"
 # - COMSysApp - COM+ System Application Service: Provides support for COM+ components. If this service is stopped, most COM+-based components will not function properly.
@@ -119,6 +163,7 @@ $manual_services = @(
     "ASUSSoftwareManager" # ASUS Software Manager - Supports software, firmware, and driver updates through MyASUS.
     "ASUSSwitch" # ASUS Switch - Provides Switch & Recovery services within MyASUS.
     "ASUSSystemAnalysis" # ASUS System Analysis - Provides hardware information required for System Diagnosis in MyASUS.
+    "asusm" # ASUS Management Service - Manages ASUS system components and settings.
     "ASUSSystemDiagnosis" # ASUS System Diagnosis - Provides diagnostic services within MyASUS.
     "atashost" # WebEx Service Host - Provides support for WebEx sessions.
     "BcastDVRUserService_*" # Broadcast DVR User Service - Supports game recordings and live broadcasts.
@@ -134,7 +179,7 @@ $manual_services = @(
     "CDPUserSvc" # Connected Devices Platform User Service - Manages connected device scenarios.
     "CDPUserSvc_*" # Connected Devices Platform User Service - Manages connected device scenarios for specific user sessions.
     "ClickToRunSvc" # Microsoft Office Click-to-Run Service - Manages Office updates and installations.
-    "CloudBackupRestoreSvc_" # Cloud Backup and Restore Service - Monitors changes in application and setting states, and performs cloud backup and restore operations.
+    "CloudBackupRestoreSvc_*" # Cloud Backup and Restore Service - Monitors changes in application and setting states, and performs cloud backup and restore operations.
     "cloudidsvc" # Microsoft Cloud Identity Service - Integrates with Microsoft cloud identity services, enforcing tenant restrictions.
     "cplspcon" # Intel Content Protection HDCP Service - Enables communication with Content Protection HDCP hardware.
     "CscService" # Offline Files - Manages maintenance activities on the Offline Files cache and responds to user logon and logoff events.
@@ -145,11 +190,12 @@ $manual_services = @(
     "DDVDataCollector" # Dell Data Vault Collector - Gathers system information for later use.
     "DDVRulesProcessor" # Dell Data Vault Processor - Generates alerts based on collected data.
     "debugregsvc" # Network Device Registration Service - Enables device discovery and debugging over the network.
-    "Dell Digital Delivery Services" # Downloads and installs applications purchased with your computer.
+    "Dell Digital Delivery Services" # Dell Digital Delivery Services - Downloads and installs applications purchased with your computer.
     "Dell SupportAssist Remediation" # Dell SupportAssist Remediation Service - Provides remediation services for Dell systems.
     "DellClientManagementService" # Dell Client Management Service - Manages Dell-specific features. Required for dependent services.
     "DellTechHub" # Dell TechHub - Manages Dell applications through Dell TechHub.
     "DellTrustedDevice" # Dell Trusted Device - Enhances physical hardware security.
+    "DevQueryBroker" # Device Query Broker - Enables apps to discover devices with a background task.
     "DeviceAssociationBrokerSvc_*" # Device Association Broker Service - Enables apps to pair devices.
     "DeviceAssociationService" # Device Association Service - Manages pairing between the system and devices.
     "Dhcp" # DHCP Client - Registers and updates IP addresses and DNS records. Required for dynamic IP and DNS updates.
@@ -172,7 +218,6 @@ $manual_services = @(
     "ESRV_SVC_QUEENCREEK" # Energy Server Service (QUEENCREEK) - Intel Energy Checker SDK. This service is CPU-intensive and generates many page faults.
     "fdPHost" # Function Discovery Provider Host - Hosts network discovery providers for SSDP and WS-D protocols. Disabling this service will disable network discovery.
     "FDResPub" # Function Discovery Resource Publication - Publishes this computer and its resources over the network. If stopped, network resources will not be discoverable.
-    "FontCache" # Windows Font Cache Service - Optimizes application performance by caching commonly used font data. Disabling this service will degrade application performance.
     "FontCache*" # Windows Font Cache Service - Optimizes application performance by caching commonly used font data. Disabling this service will degrade application performance.
     "FoxitReaderUpdateService" # Foxit PDF Reader Update Service - Keeps Foxit PDF Reader up to date.
     "GameInput Service" # Game Input Service - Host service for game input devices and peripherals.
@@ -203,7 +248,6 @@ $manual_services = @(
     "MapsBroker" # Downloaded Maps Manager - Manages downloaded maps for Windows applications.
     "MSDTC" # Distributed Transaction Coordinator - Coordinates distributed transactions for applications and services. Required for Volume Shadow Copy service.
     "ndu" # Network Data Usage Monitor - Monitors network data usage.
-    "Net Driver HPZ12" # HP Network Printer Driver - Manages network printing for HP printers.
     "NetTcpPortSharing" # Net.Tcp Port Sharing Service - Allows multiple applications to share TCP ports over the network.
     "NPSMSvc_*" # Network Policy Server Management Service - Manages network policy and access services.
     "nscp" # NSClient++ Service - Monitoring agent for Nagios and other systems.
@@ -218,7 +262,6 @@ $manual_services = @(
     "PcaSvc" # Program Compatibility Assistant Service - Detects and mitigates compatibility issues for older programs.
     "PCNS1" # PowerChute Network Shutdown - Provides network-based shutdown for multiple servers.
     "PlugPlay" # Plug and Play Service - Manages hardware changes with little or no user input. Disabling this service will result in system instability.
-    "Pml Driver HPZ12" # HP PML Driver - Manages settings for HP printers.
     "Power" # Power Service - Manages power policy and delivery.
     "RasMan" # Remote Access Connection Manager - Manages dial-up and VPN connections.
     "Razer Chroma SDK Server" # Razer Chroma SDK Server - Provides web interface for Razer Chroma SDK.
@@ -233,7 +276,8 @@ $manual_services = @(
     "RtkBtManServ" # Realtek Bluetooth Device Manager Service - Manages Bluetooth settings for Realtek devices.
     "RzActionSvc" # Razer Central Service - Manages central settings for Razer software.
     "SAService" # Conexant SmartAudio Service - Manages settings for Conexant SmartAudio.
-    "SCardSvr" # Smart Card Service - Manages access to smart cards. If stopped "ScDeviceEnum"				# Smart Card Device Enumeration Service -- Creates software device nodes for all smart card readers accessible to a given session. If this service is disabled, WinRT APIs will not be able to enumerate smart card readers.
+    "SCardSvr" # Smart Card Service - Manages access to smart cards. If stopped, this computer will be unable to read smart cards.
+    "ScDeviceEnum" # Smart Card Device Enumeration Service - Creates software device nodes for all smart card readers accessible to a given session. If disabled, WinRT APIs will not be able to enumerate smart card readers.
     "SCPolicySvc" # Smart Card Removal Policy Service - Configures the system to lock the user desktop upon smart card removal.
     "SecurityHealthService" # Windows Security Service - Handles unified device protection and health information for Windows.
     "SENS" # System Event Notification Service - Monitors system events and notifies subscribers of these events.
@@ -264,6 +308,7 @@ $manual_services = @(
     "VMwareHostd" # VMware Host Agent - Manages VMware ESXi hosts and their resources.
     "WaaSMedicSvc" # Windows Update Medic Service - Enables remediation and protection of Windows Update components.
     "WbioSrvc" # Windows Biometric Service - Manages biometric devices, such as fingerprint readers and facial recognition.
+    "WPDBusEnum" # Portable Device Enumerator Service - Enforces group policy for removable mass-storage devices and enables applications to transfer and synchronize content using MTP.
     "Wcmsvc" # Windows Connection Manager - Manages network connectivity and makes automatic connect/disconnect decisions based on available options.
     "webthreatdefsvc" # Web Threat Defense Service - Protects against web-based threats and unauthorized access.
     "webthreatdefusersvc" # Web Threat Defense User Service - Helps protect against unauthorized access to user credentials.
@@ -297,18 +342,24 @@ $broker_services = @(
 $audio_services = @(
     "AudioEndpointBuilder" # Windows Audio Endpoint Builder - Manages audio devices for the Windows Audio service. If stopped, audio devices and effects won't function properly. Dependent services will fail to start if disabled.
     "Audiosrv" # Windows Audio - Manages audio for Windows-based programs. If stopped, audio devices and effects won't function properly. Dependent services will fail to start if disabled.
+    "Focusrite Control Server" # Focusrite Control Server - Manages Focusrite audio interface settings and routing.
     "ShellHWDetection" # Shell Hardware Detection - Provides notifications for AutoPlay hardware events.
 )
 
 $print_services = @(
+    "Canon Driver Information Assist Service" # Canon Driver Information Assist Service - Provides driver information for Canon printers.
     "LPDSVC" # LPD Service - Enables client computers to print to the Line Printer Daemon (LPD) service on this server using TCP/IP and the Line Printer Remote (LPR) protocol.
     "StiSvc" # Windows Image Acquisition (WIA) - Provides image acquisition services for scanners and cameras.
+    "SshWiaRestart" # ScanSnap Home WIA Restart Service - ScanSnap Home WIA Control for Fujitsu ScanSnap scanners.
     "DeviceInstall" # Device Install Service - Enables a computer to recognize and adapt to hardware changes with little or no user input. Stopping or disabling this service will result in system instability.
     "DmEnrollmentSvc" # Device Management Enrollment Service - Performs Device Enrollment Activities for Device Management.
     "Net Driver HPZ*" # HP Network Printer Driver - Used by HP printers.
     "Pml Driver HPZ*" # HP PML Driver - Used by HP printers.
+    "PrintDeviceConfigurationService" # Print Device Configuration Service - Configures print devices.
     "PrintNotify" # Printer Extensions and Notifications - Opens custom printer dialog boxes and handles notifications from a remote print server or a printer. If disabled, printer extensions or notifications won't be visible.
+    "PrintScanBrokerService" # Print Scan Broker Service - Provides support for secure privileged operations needed by low privilege spooler.
     "PrintWorkflow_*" # Print Workflow - Provides support for Print Workflow applications. Disabling this service might prevent successful printing.
+    "PrintWorkflowUserSvc" # Print Workflow User Service - Provides support for Print Workflow applications.
     "PrintWorkflowUserSvc_*" # Print Workflow User Service - Provides support for Print Workflow applications. Disabling this service might prevent successful printing.
     "Spooler" # Print Spooler - Spools print jobs and handles interaction with the printer. If stopped, printing and printer visibility will not be possible.
 )
@@ -380,6 +431,7 @@ $start_services = @(
 )
 
 function Set-ServiceStartupType {
+    [CmdletBinding(SupportsShouldProcess)]
     param (
         [string]$serviceName,
         [string]$startupType
@@ -387,12 +439,12 @@ function Set-ServiceStartupType {
 
     if ([string]::IsNullOrWhiteSpace($serviceName)) {
         Write-Log "Invalid service name provided (empty or null)" "Warning"
-        return $false
+        return "Failed"
     }
 
     if ($startupType -notin @("Automatic", "Manual", "Disabled")) {
         Write-Log "Invalid startup type '$startupType' for service '$serviceName'" "Warning"
-        return $false
+        return "Failed"
     }
 
     try {
@@ -402,76 +454,77 @@ function Set-ServiceStartupType {
             if ($services) {
                 $serviceCount = 0
                 foreach ($service in $services) {
-                    if (Set-ServiceStartupType -serviceName $service.Name -startupType $startupType) {
+                    $result = Set-ServiceStartupType -serviceName $service.Name -startupType $startupType
+                    if ($result -eq "Success") {
                         $serviceCount++
                     }
                 }
                 Write-Log "Processed $serviceCount services matching pattern '$serviceName'" "Info"
-                return $serviceCount -gt 0
-            } else {
+                if ($serviceCount -gt 0) { return "Success" } else { return "Skipped" }
+            }
+            else {
                 Write-Log "No services found matching pattern '$serviceName'" "Verbose"
-                return $false
+                return "Skipped"
             }
         }
 
-        $serviceHandle = Get-Service -Name $serviceName -ErrorAction Stop
-        if ($null -ne $serviceHandle) {
-            if ($WhatIf) {
-                Write-Log "[WHATIF] Would change startup type to $startupType for service $($serviceHandle.Name) ($serviceName)" "Info"
-                return $true
-            }
+        $serviceHandle = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+        if ($null -eq $serviceHandle) {
+            Write-Log "Service $serviceName does not exist. Skipping." "Verbose"
+            return "Skipped"
+        }
 
+        if ($psCmdlet.ShouldProcess("Service: $($serviceHandle.Name) ($serviceName)", "Set startup type to $startupType")) {
             Write-Log "Changing startup type to $startupType for service $($serviceHandle.Name) ($serviceName)..." "Verbose"
             Set-Service -Name $serviceHandle.Name -StartupType $startupType -ErrorAction Stop
             Write-Log "$($serviceHandle.Name) startup type changed to $startupType." "Info"
-            return $true
+            return "Success"
         }
-        else {
-            Write-Log "Service $serviceName handle is null" "Warning"
-            return $false
-        }
+        return "Success" # WhatIf mode
     }
     catch {
-        if ($_.Exception.Message -like "*Access is denied*" -or $_.Exception.Message -like "*PermissionDenied*") {
+        $msg = $_.Exception.Message
+        if ($msg -like "*Access is denied*" -or $msg -like "*PermissionDenied*") {
             Write-Log "Permission denied for $serviceName. Attempting with 'sc' command." "Warning"
             try {
-                if ($WhatIf) {
-                    Write-Log "[WHATIF] Would execute sc command for $serviceName" "Info"
-                    return $true
-                }
+                if ($psCmdlet.ShouldProcess("Service: $serviceName (via sc.exe)", "Set startup type to $startupType")) {
+                    $scArgs = switch ($startupType) {
+                        "Automatic" { @("config", $serviceName, "start=", "auto") }
+                        "Manual" { @("config", $serviceName, "start=", "demand") }
+                        "Disabled" { @("config", $serviceName, "start=", "disabled") }
+                    }
 
-                $scCommand = switch ($startupType) {
-                    "Automatic" { "sc config `"$serviceName`" start= auto" }
-                    "Manual" { "sc config `"$serviceName`" start= demand" }
-                    "Disabled" { "sc config `"$serviceName`" start= disabled" }
+                    $result = & sc.exe @scArgs 2>&1
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-Log "Successfully changed $serviceName startup type using sc command" "Info"
+                        return "Success"
+                    }
+                    else {
+                        Write-Log "sc command failed for $serviceName`: $result" "Error"
+                        return "Failed"
+                    }
                 }
-
-                $result = Invoke-Expression $scCommand 2>&1
-                if ($LASTEXITCODE -eq 0) {
-                    Write-Log "Successfully changed $serviceName startup type using sc command" "Info"
-                    return $true
-                } else {
-                    Write-Log "sc command failed for $serviceName`: $result" "Error"
-                    return $false
-                }
+                return "Success" # WhatIf mode
             }
             catch {
                 Write-Log "sc command also failed for $serviceName`: $($_.Exception.Message)" "Error"
-                return $false
+                return "Failed"
             }
         }
-        elseif ($_.Exception.Message -like "*Cannot find any service with service name*") {
-            Write-Log "Service $serviceName does not exist." "Verbose"
-            return $false
+        elseif ($msg -like "*The parameter is incorrect*" -or $msg -like "*cannot be configured*") {
+            # Often happens with per-user services like AarSvc or BcastDVRUserService
+            Write-Log "Service $serviceName exists but cannot be configured (per-user service). Skipping." "Verbose"
+            return "Skipped"
         }
         else {
-            Write-Log "Failed to handle $serviceName`: $($_.Exception.Message)" "Error"
-            return $false
+            Write-Log "Failed to handle $serviceName`: $msg" "Error"
+            return "Failed"
         }
     }
 }
 
-function Manage-Service {
+function Invoke-ServiceManagement {
+    [CmdletBinding(SupportsShouldProcess)]
     param (
         [string]$serviceName,
         [string]$action
@@ -479,12 +532,25 @@ function Manage-Service {
 
     if ([string]::IsNullOrWhiteSpace($serviceName)) {
         Write-Log "Invalid service name provided (empty or null)" "Warning"
-        return $false
+        return "Failed"
     }
 
     if ($action -notin @("Start", "Stop")) {
         Write-Log "Invalid action '$action' for service '$serviceName'. Must be 'Start' or 'Stop'" "Warning"
-        return $false
+        return "Failed"
+    }
+
+    # Protection for critical system services
+    $protectedServices = @(
+        "Dhcp", "Power", "PlugPlay", "BrokerInfrastructure", "SystemEventsBroker", 
+        "TextInputManagementService", "StateRepository", "SecurityHealthService", 
+        "WaaSMedicSvc", "wscsvc", "AppXSVC", "WinHttpAutoProxySvc", "Schedule", 
+        "RpcSs", "DcomLaunch", "ProfSvc", "LSM", "SamSs"
+    )
+
+    if ($action -eq "Stop" -and ($serviceName -in $protectedServices)) {
+        Write-Log "Protecting critical service $serviceName from being stopped. Skipping." "Verbose"
+        return "Skipped"
     }
 
     try {
@@ -494,28 +560,30 @@ function Manage-Service {
             if ($services) {
                 $serviceCount = 0
                 foreach ($service in $services) {
-                    if (Manage-Service -serviceName $service.Name -action $action) {
+                    $result = Invoke-ServiceManagement -serviceName $service.Name -action $action
+                    if ($result -eq "Success") {
                         $serviceCount++
                     }
                 }
                 Write-Log "Processed $serviceCount services matching pattern '$serviceName'" "Info"
-                return $serviceCount -gt 0
-            } else {
+                if ($serviceCount -gt 0) { return "Success" } else { return "Skipped" }
+            }
+            else {
                 Write-Log "No services found matching pattern '$serviceName'" "Verbose"
-                return $false
+                return "Skipped"
             }
         }
 
-        $serviceHandle = Get-Service -Name $serviceName -ErrorAction Stop
-        if ($null -ne $serviceHandle) {
-            switch ($action) {
-                "Start" {
-                    if ($serviceHandle.Status -eq "Stopped") {
-                        if ($WhatIf) {
-                            Write-Log "[WHATIF] Would start service $($serviceHandle.Name)" "Info"
-                            return $true
-                        }
+        $serviceHandle = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+        if ($null -eq $serviceHandle) {
+            Write-Log "Service $serviceName does not exist. Skipping." "Verbose"
+            return "Skipped"
+        }
 
+        switch ($action) {
+            "Start" {
+                if ($serviceHandle.Status -eq "Stopped") {
+                    if ($psCmdlet.ShouldProcess("Service: $($serviceHandle.Name)", "Start service")) {
                         Write-Log "Starting service $($serviceHandle.Name)..." "Verbose"
                         Start-Service -Name $serviceHandle.Name -ErrorAction Stop
 
@@ -524,92 +592,85 @@ function Manage-Service {
                         $updatedService = Get-Service -Name $serviceHandle.Name
                         if ($updatedService.Status -eq "Running") {
                             Write-Log "$($serviceHandle.Name) started successfully." "Info"
-                            return $true
-                        } else {
+                            return "Success"
+                        }
+                        else {
                             Write-Log "$($serviceHandle.Name) start initiated but status is: $($updatedService.Status)" "Warning"
-                            return $false
+                            return "Failed"
                         }
                     }
-                    else {
-                        Write-Log "The service $($serviceHandle.Name) is already running." "Verbose"
-                        return $true
-                    }
+                    return "Success" # WhatIf mode
                 }
-                "Stop" {
-                    if ($serviceHandle.Status -eq "Running") {
-                        if ($WhatIf) {
-                            Write-Log "[WHATIF] Would stop service $($serviceHandle.Name)" "Info"
-                            return $true
-                        }
-
+                else {
+                    Write-Log "The service $($serviceHandle.Name) is already running." "Verbose"
+                    return "Success"
+                }
+            }
+            "Stop" {
+                if ($serviceHandle.Status -eq "Running") {
+                    if ($psCmdlet.ShouldProcess("Service: $($serviceHandle.Name)", "Stop service")) {
                         Write-Log "Stopping service $($serviceHandle.Name)..." "Verbose"
                         Stop-Service -Name $serviceHandle.Name -ErrorAction Stop -Force -NoWait
                         Write-Log "$($serviceHandle.Name) stop initiated." "Info"
-                        return $true
+                        return "Success"
                     }
-                    else {
-                        Write-Log "The service $($serviceHandle.Name) is not running." "Verbose"
-                        return $true
-                    }
+                    return "Success" # WhatIf mode
+                }
+                else {
+                    Write-Log "The service $($serviceHandle.Name) is not running." "Verbose"
+                    return "Success"
                 }
             }
-        }
-        else {
-            Write-Log "Service $serviceName handle is null" "Warning"
-            return $false
         }
     }
     catch {
-        if ($_.Exception.Message -like "*Access is denied*" -or $_.Exception.Message -like "*PermissionDenied*") {
+        $msg = $_.Exception.Message
+        if ($msg -like "*Access is denied*" -or $msg -like "*PermissionDenied*") {
             Write-Log "Permission denied for $serviceName. Attempting with 'net' command." "Warning"
             try {
-                if ($WhatIf) {
-                    Write-Log "[WHATIF] Would execute net command for $serviceName" "Info"
-                    return $true
-                }
+                if ($psCmdlet.ShouldProcess("Service: $serviceName (via net.exe)", "$action service")) {
+                    $netArgs = switch ($action) {
+                        "Start" { @("start", $serviceName) }
+                        "Stop" { @("stop", $serviceName, "/y") }
+                    }
 
-                $netCommand = switch ($action) {
-                    "Start" { "net start `"$serviceName`"" }
-                    "Stop" { "net stop `"$serviceName`" /y" }
+                    $result = & net.exe @netArgs 2>&1
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-Log "Successfully executed net command for $serviceName" "Info"
+                        return "Success"
+                    }
+                    else {
+                        Write-Log "net command failed for $serviceName`: $result" "Error"
+                        return "Failed"
+                    }
                 }
-
-                $result = Invoke-Expression $netCommand 2>&1
-                if ($LASTEXITCODE -eq 0) {
-                    Write-Log "Successfully executed net command for $serviceName" "Info"
-                    return $true
-                } else {
-                    Write-Log "net command failed for $serviceName`: $result" "Error"
-                    return $false
-                }
+                return "Success" # WhatIf mode
             }
             catch {
                 Write-Log "net command also failed for $serviceName`: $($_.Exception.Message)" "Error"
-                return $false
+                return "Failed"
             }
         }
-        elseif ($_.Exception.Message -like "*Cannot find any service with service name*") {
-            Write-Log "Service $serviceName does not exist." "Verbose"
-            return $false
-        }
         else {
-            Write-Log "Failed to handle $serviceName`: $($_.Exception.Message)" "Error"
-            return $false
+            Write-Log "Failed to handle $serviceName`: $msg" "Error"
+            return "Failed"
         }
     }
 }
 
 # Initialize counters for summary
 $script:ProcessedServices = @{
-    Auto = 0
-    Manual = 0
+    Auto     = 0
+    Manual   = 0
     Disabled = 0
-    Started = 0
-    Stopped = 0
-    Skipped = 0
-    Failed = 0
+    Started  = 0
+    Stopped  = 0
+    Skipped  = 0
+    Failed   = 0
 }
 
-function Process-ServiceList {
+function Invoke-ServiceProcess {
+    [CmdletBinding(SupportsShouldProcess)]
     param(
         [array]$ServiceList,
         [string]$Operation,
@@ -633,19 +694,28 @@ function Process-ServiceList {
 
         if ($StartupType -ne "") {
             $result = Set-ServiceStartupType -serviceName $serviceName -startupType $StartupType
-            if ($result) {
+            if ($result -eq "Success") {
                 $script:ProcessedServices[$StartupType.Replace("Automatic", "Auto")]++
-            } else {
+            }
+            elseif ($result -eq "Skipped") {
+                $script:ProcessedServices.Skipped++
+                $success = $false # Don't try to manage if skipped
+            }
+            else {
                 $script:ProcessedServices.Failed++
                 $success = $false
             }
         }
 
         if ($Action -ne "" -and $success) {
-            $result = Manage-Service -serviceName $serviceName -action $Action
-            if ($result) {
+            $result = Invoke-ServiceManagement -serviceName $serviceName -action $Action
+            if ($result -eq "Success") {
                 $script:ProcessedServices[$Action + "ed"]++
-            } else {
+            }
+            elseif ($result -eq "Skipped") {
+                $script:ProcessedServices.Skipped++
+            }
+            else {
                 $script:ProcessedServices.Failed++
             }
         }
@@ -695,11 +765,11 @@ else {
 }
 
 # Process services with enhanced tracking
-Process-ServiceList -ServiceList $auto_services -Operation "Automatic Services" -StartupType "Automatic" -Action "Start"
-Process-ServiceList -ServiceList $manual_services -Operation "Manual Services" -StartupType "Manual" -Action "Stop"
-Process-ServiceList -ServiceList $disable_services -Operation "Disabled Services" -StartupType "Disabled" -Action "Stop"
-Process-ServiceList -ServiceList $stop_services -Operation "Services to Stop" -Action "Stop"
-Process-ServiceList -ServiceList $start_services -Operation "Services to Start" -Action "Start"
+Invoke-ServiceProcess -ServiceList $auto_services -Operation "Automatic Services" -StartupType "Automatic" -Action "Start"
+Invoke-ServiceProcess -ServiceList $manual_services -Operation "Manual Services" -StartupType "Manual" -Action "Stop"
+Invoke-ServiceProcess -ServiceList $disable_services -Operation "Disabled Services" -StartupType "Disabled" -Action "Stop"
+Invoke-ServiceProcess -ServiceList $stop_services -Operation "Services to Stop" -Action "Stop"
+Invoke-ServiceProcess -ServiceList $start_services -Operation "Services to Start" -Action "Start"
 
 # Display summary
 Write-Log "=== Service Management Summary ===" "Info"
@@ -708,6 +778,7 @@ Write-Log "Manual services configured: $($script:ProcessedServices.Manual)" "Inf
 Write-Log "Disabled services configured: $($script:ProcessedServices.Disabled)" "Info"
 Write-Log "Services started: $($script:ProcessedServices.Started)" "Info"
 Write-Log "Services stopped: $($script:ProcessedServices.Stopped)" "Info"
+Write-Log "Services skipped/not found: $($script:ProcessedServices.Skipped)" "Info"
 Write-Log "Failed operations: $($script:ProcessedServices.Failed)" "Info"
 Write-Log "=== End Summary ===" "Info"
 
@@ -726,7 +797,9 @@ Write-Log "=== Windows Service Management Script Completed ===" "Info"
 if ($script:ProcessedServices.Failed -gt 0) {
     Write-Log "Script completed with $($script:ProcessedServices.Failed) failed operations" "Warning"
     exit 2
-} else {
+}
+else {
     Write-Log "Script completed successfully" "Info"
     exit 0
 }
+```

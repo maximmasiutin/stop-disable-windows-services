@@ -16,6 +16,7 @@ SET PRINT_FLAG="$False"
 SET PAUSE_FLAG="$False"
 SET WORKSTATION_FLAG="$True"
 SET BROKERS_FLAG="$True"
+SET WHATIF_FLAG=
 
 REM Parse command line arguments
 :ParseArgs
@@ -30,6 +31,8 @@ IF /I "%~1"=="noworkstation" SET WORKSTATION_FLAG="$False"
 IF /I "%~1"=="-noworkstation" SET WORKSTATION_FLAG="$False"
 IF /I "%~1"=="nobrokers" SET BROKERS_FLAG="$False"
 IF /I "%~1"=="-nobrokers" SET BROKERS_FLAG="$False"
+IF /I "%~1"=="whatif" SET WHATIF_FLAG="-WhatIf"
+IF /I "%~1"=="-whatif" SET WHATIF_FLAG="-WhatIf"
 IF /I "%~1"=="help" GOTO :ShowHelp
 IF /I "%~1"=="-help" GOTO :ShowHelp
 IF /I "%~1"=="?" GOTO :ShowHelp
@@ -82,10 +85,11 @@ ECHO   Print services: %PRINT_FLAG%
 ECHO   Workstation services: %WORKSTATION_FLAG%
 ECHO   Broker services: %BROKERS_FLAG%
 ECHO   Pause on completion: %PAUSE_FLAG%
+IF NOT "%WHATIF_FLAG%"=="" ECHO   Mode: TEST MODE (WhatIf)
 ECHO.
 
 REM Execute PowerShell script with error handling
-%POWERSHELLEXECUTABLE% -ExecutionPolicy Bypass -NoProfile -Command "& '%~dp0stop-services.ps1' -audio %AUDIO_FLAG% -print %PRINT_FLAG% -workstation %WORKSTATION_FLAG% -brokers %BROKERS_FLAG% -pause %PAUSE_FLAG%"
+%POWERSHELLEXECUTABLE% -ExecutionPolicy Bypass -NoProfile -Command "& '%~dp0stop-services.ps1' -audio %AUDIO_FLAG% -print %PRINT_FLAG% -workstation %WORKSTATION_FLAG% -brokers %BROKERS_FLAG% -pause %PAUSE_FLAG% %WHATIF_FLAG%"
 
 IF %ERRORLEVEL% NEQ 0 (
     ECHO.
@@ -111,12 +115,14 @@ ECHO   audio         - Enable audio services (default: disabled)
 ECHO   print         - Enable print services (default: disabled)
 ECHO   noworkstation - Disable workstation services (default: enabled)
 ECHO   nobrokers     - Disable broker services (default: enabled)
+ECHO   whatif        - Show what would happen without making changes
 ECHO   help, ?       - Show this help message
 ECHO.
 ECHO Examples:
 ECHO   %~nx0 pause
 ECHO   %~nx0 audio print pause
 ECHO   %~nx0 noworkstation nobrokers
+ECHO   %~nx0 whatif
 ECHO.
 ECHO This script requires Administrator privileges to modify Windows services.
 PAUSE

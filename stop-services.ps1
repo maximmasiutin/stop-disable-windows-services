@@ -466,10 +466,18 @@ function Set-ServiceStartupType {
 
         # Protection for services required by Start menu type-to-search and Windows Hello PIN
         $protectedFromChange = @(
-            "BrokerInfrastructure", "StateRepository", "AppXSVC",
-            "ClipSVC", "ShellHWDetection", "WpnUserService",
-            "WSearch", "TextInputManagementService", "TabletInputService",
-            "TokenBroker", "WbioSrvc", "cloudidsvc"
+            "BrokerInfrastructure" # Background Tasks Infrastructure Service - required for modern shell components including Start and SearchHost
+            "StateRepository" # State Repository Service - maintains Start menu and Shell state; keyboard focus logic breaks without it
+            "AppXSVC" # AppX Deployment Service - needed for Start menu app model integration
+            "ClipSVC" # Client License Service - required for Start menu app activation and focus handling
+            "ShellHWDetection" # Shell Hardware Detection - participates in shell event routing; disabling breaks Start input focus
+            "WpnUserService" # Windows Push Notifications User Service - used by Start for UI state signaling
+            "WSearch" # Windows Search - provides SearchHost backend; without it Start falls back to icon navigation
+            "TextInputManagementService" # Text Input Management Service - routes keyboard input to Start menu search box
+            "TabletInputService" # Touch Keyboard and Handwriting Panel Service - legacy text input service
+            "TokenBroker" # Token Broker - manages authentication tokens; required for Windows Hello PIN login
+            "WbioSrvc" # Windows Biometric Service - required for Windows Hello PIN and biometric login
+            "cloudidsvc" # Microsoft Cloud Identity Service - required for Windows Hello PIN with Microsoft accounts
         )
         if ($serviceName -in $protectedFromChange -or $serviceName -like "WpnUserService_*") {
             Write-Log "Protecting service $serviceName from startup type change (required for Start menu search or PIN login). Skipping." "Verbose"
@@ -548,14 +556,32 @@ function Invoke-ServiceManagement {
         return "Failed"
     }
 
-    # Protection for critical system services
+    # Protection for critical system services (never stopped)
     $protectedServices = @(
-        "Dhcp", "Power", "PlugPlay", "BrokerInfrastructure", "SystemEventsBroker",
-        "StateRepository", "SecurityHealthService",
-        "WaaSMedicSvc", "wscsvc", "AppXSVC", "WinHttpAutoProxySvc", "Schedule",
-        "RpcSs", "DcomLaunch", "ProfSvc", "LSM", "SamSs",
-        "ClipSVC", "ShellHWDetection", "WSearch",
-        "TextInputManagementService", "TokenBroker", "WbioSrvc", "cloudidsvc"
+        "Dhcp" # DHCP Client - registers and updates IP addresses and DNS records
+        "Power" # Power Service - manages power policy and delivery
+        "PlugPlay" # Plug and Play - manages hardware changes; disabling causes system instability
+        "BrokerInfrastructure" # Background Tasks Infrastructure Service - required for Start menu and SearchHost
+        "SystemEventsBroker" # System Events Broker - coordinates background tasks for Store and UWP apps
+        "StateRepository" # State Repository Service - maintains Start menu and Shell state
+        "SecurityHealthService" # Windows Security Service - unified device protection and health
+        "WaaSMedicSvc" # Windows Update Medic Service - remediation of Windows Update components
+        "wscsvc" # Windows Security Center Service - monitors security health settings
+        "AppXSVC" # AppX Deployment Service - needed for Start menu app model integration
+        "WinHttpAutoProxySvc" # WinHTTP Web Proxy Auto-Discovery Service - client HTTP stack
+        "Schedule" # Task Scheduler - enables task scheduling
+        "RpcSs" # Remote Procedure Call - endpoint mapper and COM service control manager
+        "DcomLaunch" # DCOM Server Process Launcher - launches COM and DCOM servers
+        "ProfSvc" # User Profile Service - loads and unloads user profiles
+        "LSM" # Local Session Manager - manages logon sessions
+        "SamSs" # Security Accounts Manager - stores security information for local accounts
+        "ClipSVC" # Client License Service - required for Start menu app activation and focus handling
+        "ShellHWDetection" # Shell Hardware Detection - shell event routing; disabling breaks Start input focus
+        "WSearch" # Windows Search - provides SearchHost backend for Start menu type-to-search
+        "TextInputManagementService" # Text Input Management Service - routes keyboard input to Start menu search box
+        "TokenBroker" # Token Broker - manages authentication tokens; required for Windows Hello PIN login
+        "WbioSrvc" # Windows Biometric Service - required for Windows Hello PIN and biometric login
+        "cloudidsvc" # Microsoft Cloud Identity Service - required for Windows Hello PIN with Microsoft accounts
     )
 
     if ($action -eq "Stop" -and ($serviceName -in $protectedServices)) {

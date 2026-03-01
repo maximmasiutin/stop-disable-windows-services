@@ -285,7 +285,7 @@ $manual_services = @(
     "stunnel" # Stunnel TLS Wrapper - Provides TLS offloading and load-balancing proxy functionalities.
     "SupportAssistAgent" # Dell SupportAssist Agent - Keeps your PC up to date with recommended software and driver updates. Detects and resolves issues by sending details to Dell Technical Support agents.
     "swprv" # Microsoft Software Shadow Copy Provider - Manages software-based volume shadow copies taken by the Volume Shadow Copy service. Disabling this service will prevent software-based volume shadow copies from being managed.
-    "TabletInputService" # Tablet PC Input Service - Enables pen and touch input features, including handwriting and touch keyboard.
+    # "TabletInputService" -- removed; related to TextInputManagementService, required for Start menu type-to-search and PIN entry
     "TbtHostControllerService" # Thunderbolt Host Controller Service - Manages Thunderbolt connections and settings.
     # "TextInputManagementService" -- moved to $stop_services; required for PIN entry on lock screen
     "Themes" # Themes Service - Provides user experience theme management.

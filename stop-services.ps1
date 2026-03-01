@@ -103,11 +103,6 @@ function Show-SecurityWarning {
     Write-Host " - Disabling Windows Update and Security Center"
     Write-Host " - Stopping Telemetry and Diagnostics"
     Write-Host ""
-    Write-Host "IMPACT ON START MENU SEARCH:" -ForegroundColor Cyan
-    Write-Host "Typing in the Start menu will require an explicit click on the"
-    Write-Host "search field because 'TextInputManagementService' and 'WSearch'"
-    Write-Host "will be stopped/disabled."
-    Write-Host ""
     Write-Host "It is HIGHLY RECOMMENDED to create a System Restore Point before"
     Write-Host "proceeding if you haven't already done so."
     Write-Host ""
@@ -180,7 +175,7 @@ $manual_services = @(
     "CDPUserSvc_*" # Connected Devices Platform User Service - Manages connected device scenarios for specific user sessions.
     "ClickToRunSvc" # Microsoft Office Click-to-Run Service - Manages Office updates and installations.
     "CloudBackupRestoreSvc_*" # Cloud Backup and Restore Service - Monitors changes in application and setting states, and performs cloud backup and restore operations.
-    "cloudidsvc" # Microsoft Cloud Identity Service - Integrates with Microsoft cloud identity services, enforcing tenant restrictions.
+    # "cloudidsvc" -- moved to $stop_services; required for Windows Hello PIN login with Microsoft accounts
     "cplspcon" # Intel Content Protection HDCP Service - Enables communication with Content Protection HDCP hardware.
     "CscService" # Offline Files - Manages maintenance activities on the Offline Files cache and responds to user logon and logoff events.
     "CxAudioSvc" # Conexant Audio Service - Manages Conexant audio settings and functionality.
@@ -292,7 +287,7 @@ $manual_services = @(
     "swprv" # Microsoft Software Shadow Copy Provider - Manages software-based volume shadow copies taken by the Volume Shadow Copy service. Disabling this service will prevent software-based volume shadow copies from being managed.
     "TabletInputService" # Tablet PC Input Service - Enables pen and touch input features, including handwriting and touch keyboard.
     "TbtHostControllerService" # Thunderbolt Host Controller Service - Manages Thunderbolt connections and settings.
-    "TextInputManagementService" # Text Input Management Service - Enables text input, touch keyboard, handwriting, and IMEs (Input Method Editors).
+    # "TextInputManagementService" -- moved to $stop_services; required for PIN entry on lock screen
     "Themes" # Themes Service - Provides user experience theme management.
     "TrkWks" # Distributed Link Tracking Client - Maintains links to files on NTFS volumes within a network domain.
     "UdkUserSvc" # Universal Driver Kit User Service - Manages user-specific settings for Universal Driver Kit.
@@ -307,7 +302,7 @@ $manual_services = @(
     "VMware NAT Service" # VMware NAT Service - Provides network address translation (NAT) for VMware virtual networks.
     "VMwareHostd" # VMware Host Agent - Manages VMware ESXi hosts and their resources.
     "WaaSMedicSvc" # Windows Update Medic Service - Enables remediation and protection of Windows Update components.
-    "WbioSrvc" # Windows Biometric Service - Manages biometric devices, such as fingerprint readers and facial recognition.
+    # "WbioSrvc" -- moved to $stop_services; required for Windows Hello PIN and biometric login
     "WPDBusEnum" # Portable Device Enumerator Service - Enforces group policy for removable mass-storage devices and enables applications to transfer and synchronize content using MTP.
     "Wcmsvc" # Windows Connection Manager - Manages network connectivity and makes automatic connect/disconnect decisions based on available options.
     "webthreatdefsvc" # Web Threat Defense Service - Protects against web-based threats and unauthorized access.
@@ -320,7 +315,7 @@ $manual_services = @(
     "WpnService" # Windows Push Notifications Service - Manages push notifications for Windows apps.
     "WpnUserService_*" # Windows Push Notifications User Service - Manages push notifications for specific user sessions.
     "wscsvc" # Windows Security Center Service - Monitors and reports security health settings for the system.
-    "WSearch" # Windows Search Service - Provides content indexing, property caching, and search results for files, emails, and other content.
+    # "WSearch" -- removed; required for Start menu type-to-search functionality
     "wuauserv" # Windows Update Service - Manages detection, download, and installation of updates for Windows and other programs.
     "XblAuthManager" # Xbox Live Auth Manager - Manages authentication for Xbox Live services.
     "XblGameSave" # Xbox Live Game Save Service - Manages game save data for Xbox Live.
@@ -336,7 +331,7 @@ $broker_services = @(
     "BrokerInfrastructure" # Background Tasks Infrastructure Service - Controls which background tasks can run on the system.
     "SystemEventsBroker" # System Events Broker - Coordinates the execution of background tasks for Windows Store and UWP applications. If stopped, these tasks might not be triggered, affecting the functionality of the apps.
     "SysMain" # SysMain (formerly Superfetch) - Improves system performance by preloading frequently used applications into RAM. It analyzes usage patterns and preloads applications to reduce load times and improve overall performance. Can cause high CPU or disk usage; disable if it causes performance issues.
-    "TokenBroker" # Token Broker - Used by Microsoft Office license check, Microsoft Store login. Provides single-sign-on to apps and services via Web Account Manager.
+    # "TokenBroker" -- moved to $stop_services; required for Windows Hello PIN login
 )
 
 $audio_services = @(
@@ -386,7 +381,7 @@ $stop_services = @(
     "CertPropSvc" # Certificate Propagation - Copies user and root certificates from smart cards into the user's certificate store, detects smart card insertion, and installs the smart card Plug and Play minidriver if needed.
     "ClickToRunSvc" # Microsoft Office Click-to-Run Service - Manages updates and installations for Microsoft Office.
     "ClipSVC" # Client License Service (ClipSVC) - Provides infrastructure support for the Microsoft Store. Disabling this service may cause applications bought from the Store to malfunction.
-    "cloudidsvc" # Microsoft Cloud Identity Service - Supports integrations with Microsoft cloud identity services. If disabled, tenant restrictions will not be enforced properly.
+    "cloudidsvc" # Microsoft Cloud Identity Service - Supports integrations with Microsoft cloud identity services. Required for Windows Hello PIN login with Microsoft accounts.
     "ConsentUxUser" # Consent User Service - Manages consent for user actions.
     "ConsentUxUserSvc_*" # Consent User Service - Manages consent for user actions for specific user sessions.
     "cplspcon" # Intel Content Protection HDCP Service - Enables communication with Content Protection HDCP hardware.
@@ -409,9 +404,9 @@ $stop_services = @(
     "RmSvc" # Radio Management Service - Manages radio and airplane mode settings.
     "sacsvr" # Special Administration Console Helper - Allows administrators to remotely access a command prompt using Emergency Management Services.
     "StorSvc" # Storage Service - Manages storage settings and external storage expansion.
-    "TextInputManagementService" # Text Input Management Service - Enables text input, touch keyboard, handwriting, and IMEs.
+    # "TextInputManagementService" -- removed; required for PIN entry on lock screen and Start menu type-to-search
     "TimeBrokerSvc" # Time Broker Service - Coordinates execution of background work for WinRT applications. Disabling this service may prevent background work from being triggered.
-    "TokenBroker" # Token Broker - Manages tokens for application authentication.
+    "TokenBroker" # Token Broker - Manages tokens for application authentication. Required for Windows Hello PIN login.
     "UdkUserSvc_*" # Universal Driver Kit User Service - Manages settings for Universal Driver Kit for specific user sessions.
     "UnistoreSvc_*" # User Data Storage Service - Handles storage of structured user data (contacts, calendars, messages, etc.). Disabling this service may affect apps that use this data.
     "UserDataSvc_*" # User Data Access Service - Provides apps access to structured user data (contacts, calendars, messages, etc.). Disabling this service may affect apps that use this data.
@@ -420,6 +415,7 @@ $stop_services = @(
     "WaaSMedicSvc" # Windows Update Medic Service - Enables remediation and protection of Windows Update components.
     "WinHttpAutoProxySvc" # WinHTTP Web Proxy Auto-Discovery Service - Implements the client HTTP stack and provides support for auto-discovering a proxy configuration via the Web Proxy Auto-Discovery (WPAD) protocol.
     "Winmgmt" # Windows Management Instrumentation (WMI) - Provides a common interface and object model to access management information about the operating system, devices, applications, and services.
+    "WbioSrvc" # Windows Biometric Service - Manages biometric devices. Required for Windows Hello PIN and biometric login.
     "WpnUserService_*" # Windows Push Notifications User Service - Manages push notifications for specific user sessions. Supports tile, toast, and raw notifications.
     "wuauserv" # Windows Update Service - Manages detection, download, and installation of updates for Windows and other programs. Disabling this service will prevent the use of Windows Update and its automatic updating feature.
 )
@@ -542,8 +538,8 @@ function Invoke-ServiceManagement {
 
     # Protection for critical system services
     $protectedServices = @(
-        "Dhcp", "Power", "PlugPlay", "BrokerInfrastructure", "SystemEventsBroker", 
-        "TextInputManagementService", "StateRepository", "SecurityHealthService", 
+        "Dhcp", "Power", "PlugPlay", "BrokerInfrastructure", "SystemEventsBroker",
+        "StateRepository", "SecurityHealthService",
         "WaaSMedicSvc", "wscsvc", "AppXSVC", "WinHttpAutoProxySvc", "Schedule", 
         "RpcSs", "DcomLaunch", "ProfSvc", "LSM", "SamSs"
     )

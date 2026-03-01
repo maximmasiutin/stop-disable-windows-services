@@ -464,6 +464,18 @@ function Set-ServiceStartupType {
             }
         }
 
+        # Protection for services required by Start menu type-to-search and Windows Hello PIN
+        $protectedFromChange = @(
+            "BrokerInfrastructure", "StateRepository", "AppXSVC",
+            "ClipSVC", "ShellHWDetection", "WpnUserService",
+            "WSearch", "TextInputManagementService", "TabletInputService",
+            "TokenBroker", "WbioSrvc", "cloudidsvc"
+        )
+        if ($serviceName -in $protectedFromChange -or $serviceName -like "WpnUserService_*") {
+            Write-Log "Protecting service $serviceName from startup type change (required for Start menu search or PIN login). Skipping." "Verbose"
+            return "Skipped"
+        }
+
         $serviceHandle = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
         if ($null -eq $serviceHandle) {
             Write-Log "Service $serviceName does not exist. Skipping." "Verbose"
@@ -540,8 +552,10 @@ function Invoke-ServiceManagement {
     $protectedServices = @(
         "Dhcp", "Power", "PlugPlay", "BrokerInfrastructure", "SystemEventsBroker",
         "StateRepository", "SecurityHealthService",
-        "WaaSMedicSvc", "wscsvc", "AppXSVC", "WinHttpAutoProxySvc", "Schedule", 
-        "RpcSs", "DcomLaunch", "ProfSvc", "LSM", "SamSs"
+        "WaaSMedicSvc", "wscsvc", "AppXSVC", "WinHttpAutoProxySvc", "Schedule",
+        "RpcSs", "DcomLaunch", "ProfSvc", "LSM", "SamSs",
+        "ClipSVC", "ShellHWDetection", "WSearch",
+        "TextInputManagementService", "TokenBroker", "WbioSrvc", "cloudidsvc"
     )
 
     if ($action -eq "Stop" -and ($serviceName -in $protectedServices)) {

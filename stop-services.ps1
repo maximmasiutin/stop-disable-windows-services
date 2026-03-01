@@ -1,11 +1,12 @@
 <#
 .SYNOPSIS
- Stop and Disable Windows Services v1.0
+ Stop and Disable Windows Services
 
  Copyright 2024 Maxim Masiutin. All rights reserved
 
 .DESCRIPTION
- This script disables and stops certain Windows services.
+ This script manages Windows services across multiple categories by setting startup types and starting/stopping services.
+ It includes guardrails for Start menu type-to-search and Windows Hello PIN dependencies.
 
 .PARAMETER audio
  If this parameter is $False, services related to audio will be switched to Manual startup type and stopped. Otherwise, if this parameter is $True, audio services' startup type will be Automatic, and such services will be started. Defaults to $True.
@@ -21,11 +22,45 @@
 
 .PARAMETER brokers
  If this parameter is $False, services related to brokers will be switched to Manual startup type and stopped. Otherwise, if this parameter is $True, broker services' startup type will be Automatic, and such services will be started. Defaults to $True.
+ SystemEventsBroker is intentionally excluded from management and remains untouched.
+
+.PARAMETER CheckStartSearchSafety
+ Runs a read-only safety audit for Start menu type-to-search behavior (Ctrl+Esc then type). This mode reports whether planned startup-type/stop actions could break keyboard typing in Start/Search and exits without changing services.
+ Exit code 0 means no script-induced risk was detected; exit code 3 means potential risk was detected.
+
+.PARAMETER startsearch
+ Controls Start menu type-to-search services.
+ - $True (default): keeps Start/Search input services protected and available.
+    Also runs a post-run self-heal/input-stack repair pass unless -NoBounce is used.
+ - $False: intentionally moves Start/Search input services to Manual and stops them, so Ctrl+Esc then typing may stop working until re-enabled.
+    If you re-enable later, restart explorer.exe or sign out/sign in if shell typing does not recover immediately.
+
+.PARAMETER NoBounce
+ Applies startup type policy changes without immediate stop/start transitions in the same run.
+ This mode reduces runtime churn and is useful when keeping Start menu auto-type stable is a priority.
+ In this mode, explicit stop/start lists and post-run Start/Search repair actions are skipped.
+ Disabled services are still stopped in this mode for consistency and security hardening.
+ When -NoBounce is not used, the script performs an end-of-run Explorer + ctfmon refresh.
+ If you run without -NoBounce, temporary shell input-focus issues can occur: Ctrl+Esc may not immediately focus Start search,
+ and typing in Start may fail unless the search input line is explicitly focused first.
+
+.PARAMETER Force
+ Skips the interactive security warning confirmation prompt.
 
 .EXAMPLE
  ./stop-services.ps1 -audio $False -pause $True -workstation $True -brokers $True
 
  This example stops audio-related services and sets them to Manual startup type, starts workstation and broker services as Automatic, and prompts the user to press any key before the script exits. Also, it modifies other services as specified in the code.
+
+.EXAMPLE
+ ./stop-services.ps1 -CheckStartSearchSafety -startsearch $True
+
+ Runs a read-only audit for Start/Search type-to-search safety and exits without changing services.
+
+.EXAMPLE
+ ./stop-services.ps1 -workstation $False -audio $True -print $False -brokers $True -startsearch $True -NoBounce -Force
+
+ Applies startup type changes while avoiding immediate stop/start transitions for reduced shell/input churn.
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
@@ -35,6 +70,9 @@ param(
     [bool]$pause = $false,
     [bool]$brokers = $true,
     [bool]$workstation = $true,
+    [bool]$startsearch = $true,
+    [switch]$NoBounce,
+    [switch]$CheckStartSearchSafety,
     [switch]$Force,
     [string]$LogFile = ""
 )
@@ -47,12 +85,17 @@ function Test-Administrator {
 }
 
 if (-not (Test-Administrator)) {
-    Write-Error "This script requires Administrator privileges. Please run PowerShell as Administrator."
-    if ($pause) {
-        Write-Host "Press any key to continue..."
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    if ($CheckStartSearchSafety) {
+        Write-Warning "Running Start/Search safety audit without Administrator privileges. Read-only checks will continue."
     }
-    exit 1
+    else {
+        Write-Error "This script requires Administrator privileges. Please run PowerShell as Administrator."
+        if ($pause) {
+            Write-Host "Press any key to continue..."
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        }
+        exit 1
+    }
 }
 
 # Initialize logging
@@ -67,7 +110,9 @@ function Write-Log {
     $script:LogEntries += $logEntry
 
     switch ($Level) {
-        "Error" { Write-Error $Message }
+        # Use host output for operational errors so pwsh exit code is controlled by explicit exit paths,
+        # not by non-terminating error records emitted during expected per-service failures.
+        "Error" { Write-Host "ERROR: $Message" -ForegroundColor Red }
         "Warning" { Write-Warning $Message }
         "Info" { Write-Host $Message }
         "Verbose" { if ($Verbose) { Write-Host $Message -ForegroundColor Gray } }
@@ -84,6 +129,441 @@ function Save-Log {
         catch {
             Write-Log "Failed to save log to $LogFile`: $($_.Exception.Message)" "Warning"
         }
+    }
+}
+
+function Test-ServiceMatchesPattern {
+    param(
+        [string]$ServiceName,
+        [string]$Pattern
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ServiceName) -or [string]::IsNullOrWhiteSpace($Pattern)) {
+        return $false
+    }
+
+    if ($Pattern.Contains("*")) {
+        return ($ServiceName -like $Pattern)
+    }
+
+    return ($ServiceName -ieq $Pattern)
+}
+
+function Test-ServicePlannedInList {
+    param(
+        [string]$ServiceName,
+        [array]$ServiceList
+    )
+
+    foreach ($pattern in $ServiceList) {
+        if (Test-ServiceMatchesPattern -ServiceName $ServiceName -Pattern $pattern) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Remove-ServicePatternsFromList {
+    param(
+        [array]$SourceList,
+        [array]$PatternsToRemove
+    )
+
+    $result = @()
+    foreach ($item in $SourceList) {
+        $shouldRemove = $false
+        foreach ($pattern in $PatternsToRemove) {
+            if ($item -ieq $pattern) {
+                $shouldRemove = $true
+                break
+            }
+        }
+
+        if (-not $shouldRemove) {
+            $result += $item
+        }
+    }
+
+    return $result
+}
+
+function Test-IsStartSearchService {
+    param(
+        [string]$ServiceName
+    )
+
+    $startSearchPatterns = @(
+        "WSearch",
+        "TextInputManagementService",
+        "TabletInputService",
+        "WpnService",
+        "WpnUserService",
+        "WpnUserService_*"
+    )
+
+    foreach ($pattern in $startSearchPatterns) {
+        if (Test-ServiceMatchesPattern -ServiceName $ServiceName -Pattern $pattern) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Test-IsManagedStartupService {
+    param(
+        [string]$ServiceName
+    )
+
+    $managedPatterns = @(
+        "TextInputManagementService"
+    )
+
+    foreach ($pattern in $managedPatterns) {
+        if (Test-ServiceMatchesPattern -ServiceName $ServiceName -Pattern $pattern) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Test-IsKnownProtectedInputService {
+    param(
+        [string]$ServiceName
+    )
+
+    $knownPatterns = @(
+        "TextInputManagementService",
+        "TabletInputService",
+        "WpnService",
+        "WpnUserService_*",
+        "TokenBroker",
+        "WbioSrvc",
+        "cloudidsvc"
+    )
+
+    foreach ($pattern in $knownPatterns) {
+        if (Test-ServiceMatchesPattern -ServiceName $ServiceName -Pattern $pattern) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Get-ServiceStartupTypeSafe {
+    param(
+        [string]$ServiceName
+    )
+
+    try {
+        $cimService = Get-CimInstance -ClassName Win32_Service -Filter "Name='$ServiceName'" -ErrorAction Stop
+        switch ($cimService.StartMode) {
+            "Auto" { return "Automatic" }
+            "Manual" { return "Manual" }
+            "Disabled" { return "Disabled" }
+            default { return $cimService.StartMode }
+        }
+    }
+    catch {
+        return "Unknown"
+    }
+}
+
+function Set-ServiceStartupTypeRegistryFallback {
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [string]$ServiceName,
+        [string]$StartupType
+    )
+
+    $registryValue = switch ($StartupType) {
+        "Automatic" { 2 }
+        "Manual" { 3 }
+        "Disabled" { 4 }
+        default { $null }
+    }
+
+    if ($null -eq $registryValue) {
+        Write-Log "Registry fallback: invalid startup type '$StartupType' for service '$ServiceName'." "Warning"
+        return "Failed"
+    }
+
+    $serviceKeyPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName"
+    if (-not (Test-Path $serviceKeyPath)) {
+        Write-Log "Registry fallback: service key not found for $ServiceName. Skipping." "Verbose"
+        return "Skipped"
+    }
+
+    try {
+        if ($psCmdlet.ShouldProcess("Registry: $serviceKeyPath", "Set Start=$registryValue")) {
+            Set-ItemProperty -Path $serviceKeyPath -Name "Start" -Value $registryValue -ErrorAction Stop
+            Write-Log "Registry fallback applied for $($ServiceName): Start=$registryValue." "Info"
+        }
+        return "Success"
+    }
+    catch {
+        $msg = $_.Exception.Message
+        if ($msg -like "*Access is denied*" -or $msg -like "*PermissionDenied*") {
+            if (Test-IsKnownProtectedInputService -ServiceName $ServiceName) {
+                Write-Log "Registry fallback denied for protected/input service $ServiceName. Treating as skipped." "Warning"
+                return "Skipped"
+            }
+        }
+
+        Write-Log "Registry fallback failed for $ServiceName`: $msg" "Error"
+        return "Failed"
+    }
+}
+
+function Invoke-StartSearchSafetyCheck {
+    param(
+        [array]$AutoList,
+        [array]$ManualList,
+        [array]$DisableList,
+        [array]$StopList,
+        [array]$StartList
+    )
+
+    Write-Log "=== Start/Search Safety Audit (Read-Only) ===" "Info"
+    Write-Log "Checking whether planned operations can break Ctrl+Esc -> immediate typing in Start menu search." "Info"
+
+    $criticalDefinitions = @(
+        @{ Pattern = "BrokerInfrastructure"; Reason = "Core shell background task broker for Start/Search" },
+        @{ Pattern = "StateRepository"; Reason = "Maintains Start menu shell state" },
+        @{ Pattern = "WSearch"; Reason = "Search backend for Start menu type-to-search" },
+        @{ Pattern = "TextInputManagementService"; Reason = "Text input routing to search UI" },
+        @{ Pattern = "TabletInputService"; Reason = "Legacy text input service used on some builds" },
+        @{ Pattern = "AppXSVC"; Reason = "App model integration used by Start" },
+        @{ Pattern = "ClipSVC"; Reason = "App activation path used by Start entries" },
+        @{ Pattern = "ShellHWDetection"; Reason = "Shell event routing dependency" },
+        @{ Pattern = "WpnService"; Reason = "Core push channel used by shell UI state" },
+        @{ Pattern = "WpnUserService_*"; Reason = "Per-user push channel used by Start UI state" }
+    )
+
+    $protectedFromChange = @(
+        "BrokerInfrastructure",
+        "StateRepository",
+        "AppXSVC",
+        "ClipSVC",
+        "ShellHWDetection"
+    )
+
+    $protectedFromStop = @(
+        "BrokerInfrastructure",
+        "StateRepository",
+        "AppXSVC",
+        "ClipSVC",
+        "ShellHWDetection"
+    )
+
+    $riskCount = 0
+    $checkedCount = 0
+
+    foreach ($definition in $criticalDefinitions) {
+        $pattern = $definition.Pattern
+        $reason = $definition.Reason
+        $matchedServices = @()
+
+        if ($pattern.Contains("*")) {
+            $matchedServices = Get-Service -Name $pattern -ErrorAction SilentlyContinue
+        }
+        else {
+            $single = Get-Service -Name $pattern -ErrorAction SilentlyContinue
+            if ($single) { $matchedServices = @($single) }
+        }
+
+        if (-not $matchedServices -or $matchedServices.Count -eq 0) {
+            Write-Log "[INFO] $pattern not present on this system ($reason)." "Info"
+            continue
+        }
+
+        foreach ($service in $matchedServices) {
+            $checkedCount++
+            $name = $service.Name
+            $startupType = Get-ServiceStartupTypeSafe -ServiceName $name
+
+            $plannedStartupType = "NoChange"
+            if (Test-ServicePlannedInList -ServiceName $name -ServiceList $DisableList) {
+                $plannedStartupType = "Disabled"
+            }
+            elseif (Test-ServicePlannedInList -ServiceName $name -ServiceList $ManualList) {
+                $plannedStartupType = "Manual"
+            }
+            elseif (Test-ServicePlannedInList -ServiceName $name -ServiceList $AutoList) {
+                $plannedStartupType = "Automatic"
+            }
+
+            $plannedStop = (Test-ServicePlannedInList -ServiceName $name -ServiceList $StopList) -or
+                (Test-ServicePlannedInList -ServiceName $name -ServiceList $ManualList) -or
+                (Test-ServicePlannedInList -ServiceName $name -ServiceList $DisableList)
+
+            $plannedStart = (Test-ServicePlannedInList -ServiceName $name -ServiceList $StartList) -or
+                (Test-ServicePlannedInList -ServiceName $name -ServiceList $AutoList)
+
+            $startupProtected = ($name -in $protectedFromChange)
+            $stopProtected = ($name -in $protectedFromStop)
+
+            if ($startsearch -and (Test-IsStartSearchService -ServiceName $name)) {
+                $startupProtected = $true
+                $stopProtected = $true
+            }
+
+            $startupRisk = (($plannedStartupType -eq "Manual") -or ($plannedStartupType -eq "Disabled")) -and (-not $startupProtected)
+            $stopRisk = $plannedStop -and (-not $stopProtected)
+
+            if ($startupRisk -or $stopRisk) {
+                $riskCount++
+                Write-Log "[RISK] $name | Now: status=$($service.Status), startup=$startupType | Plan: startup->$plannedStartupType, stop=$plannedStop, start=$plannedStart | Reason: $reason" "Warning"
+            }
+            else {
+                Write-Log "[OK] $name | Now: status=$($service.Status), startup=$startupType | Plan: startup->$plannedStartupType, stop=$plannedStop, start=$plannedStart | Reason: $reason" "Info"
+            }
+        }
+    }
+
+    Write-Log "Checked $checkedCount Start/Search-related service instance(s)." "Info"
+    if ($riskCount -eq 0) {
+        Write-Log "Safety audit result: no script-induced Start/Search typing risk detected." "Info"
+        return $true
+    }
+
+    Write-Log "Safety audit result: detected $riskCount potential risk(s). Review lists before running service changes." "Warning"
+    return $false
+}
+
+function Invoke-StartSearchSelfHeal {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+
+    Write-Log "=== Start/Search Self-Heal (Post-Run) ===" "Info"
+
+    # Broader critical set than the minimal Start/Search list. These services influence shell activation,
+    # app model state, and keyboard routing into Start/Search.
+    $criticalServices = @(
+        "BrokerInfrastructure",
+        "StateRepository",
+        "AppXSVC",
+        "ClipSVC",
+        "ShellHWDetection",
+        "WSearch",
+        "TextInputManagementService",
+        "TabletInputService",
+        "WpnService",
+        "WpnUserService_*"
+    )
+
+    foreach ($servicePattern in $criticalServices) {
+        $services = @()
+
+        if ($servicePattern.Contains("*")) {
+            $services = Get-Service -Name $servicePattern -ErrorAction SilentlyContinue
+        }
+        else {
+            $single = Get-Service -Name $servicePattern -ErrorAction SilentlyContinue
+            if ($single) { $services = @($single) }
+        }
+
+        if (-not $services -or $services.Count -eq 0) {
+            Write-Log "Start/Search self-heal: service '$servicePattern' is not present on this system. Skipping." "Verbose"
+            continue
+        }
+
+        foreach ($service in $services) {
+            if (-not (Test-IsManagedStartupService -ServiceName $service.Name)) {
+                [void](Set-ServiceStartupType -serviceName $service.Name -startupType "Automatic")
+            }
+            [void](Invoke-ServiceManagement -serviceName $service.Name -action "Start")
+        }
+    }
+
+    # Refresh the text input host to reduce stale shell input routing after service changes.
+    try {
+        $ctfPath = Join-Path $env:WINDIR "System32\ctfmon.exe"
+        if (Test-Path $ctfPath) {
+            Start-Process -FilePath $ctfPath -ErrorAction SilentlyContinue
+            Write-Log "Start/Search self-heal: ctfmon refresh requested." "Verbose"
+        }
+    }
+    catch {
+        Write-Log "Start/Search self-heal: failed to refresh ctfmon: $($_.Exception.Message)" "Warning"
+    }
+}
+
+function Invoke-StartSearchInputStackRepair {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+
+    Write-Log "=== Start/Search Input Stack Repair (Post-Run) ===" "Info"
+
+    # Refresh text input host explicitly.
+    try {
+        $ctfPath = Join-Path $env:WINDIR "System32\ctfmon.exe"
+        if (Test-Path $ctfPath) {
+            $existingCtf = Get-Process -Name "ctfmon" -ErrorAction SilentlyContinue
+            foreach ($p in $existingCtf) {
+                if ($psCmdlet.ShouldProcess("Process: ctfmon ($($p.Id))", "Stop process")) {
+                    Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+                }
+            }
+
+            if ($psCmdlet.ShouldProcess("Process: ctfmon", "Start process")) {
+                Start-Process -FilePath $ctfPath -ErrorAction SilentlyContinue
+            }
+            Write-Log "Start/Search input stack repair: ctfmon restarted." "Verbose"
+        }
+    }
+    catch {
+        Write-Log "Start/Search input stack repair: failed to restart ctfmon: $($_.Exception.Message)" "Warning"
+    }
+
+    # Restart shell sidecar processes that usually relaunch automatically.
+    $sidecarProcesses = @(
+        "SearchHost",
+        "StartMenuExperienceHost"
+    )
+
+    foreach ($procName in $sidecarProcesses) {
+        try {
+            $procs = Get-Process -Name $procName -ErrorAction SilentlyContinue
+            if (-not $procs) {
+                continue
+            }
+
+            foreach ($p in $procs) {
+                if ($psCmdlet.ShouldProcess("Process: $procName ($($p.Id))", "Restart sidecar process")) {
+                    Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+                    Write-Log "Start/Search input stack repair: restarted $procName (PID $($p.Id))." "Verbose"
+                }
+            }
+        }
+        catch {
+            Write-Log "Start/Search input stack repair: failed to restart $($procName): $($_.Exception.Message)" "Warning"
+        }
+    }
+}
+
+function Invoke-ExplorerRefreshAfterBounce {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+
+    Write-Log "=== Explorer Refresh (Post-Run) ===" "Info"
+
+    try {
+        if ($psCmdlet.ShouldProcess("Process: explorer", "Restart explorer and refresh text input host")) {
+            Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+            Start-Process explorer.exe -ErrorAction SilentlyContinue
+
+            $ctfPath = Join-Path $env:WINDIR "System32\ctfmon.exe"
+            if (Test-Path $ctfPath) {
+                Start-Process -FilePath $ctfPath -ErrorAction SilentlyContinue
+            }
+            Write-Log "Explorer refresh completed (explorer + ctfmon)." "Info"
+        }
+    }
+    catch {
+        Write-Log "Explorer refresh failed: $($_.Exception.Message)" "Warning"
     }
 }
 
@@ -119,9 +599,9 @@ function Show-SecurityWarning {
 }
 
 Write-Log "=== Windows Service Management Script Started ===" "Info"
-Write-Log "Parameters: audio=$audio, print=$print, workstation=$workstation, brokers=$brokers, pause=$pause, Force=$Force, WhatIf=$($PSBoundParameters.ContainsKey('WhatIf'))" "Info"
+Write-Log "Parameters: audio=$audio, print=$print, workstation=$workstation, brokers=$brokers, startsearch=$startsearch, NoBounce=$NoBounce, pause=$pause, CheckStartSearchSafety=$CheckStartSearchSafety, Force=$Force, WhatIf=$($PSBoundParameters.ContainsKey('WhatIf'))" "Info"
 
-if (-not (Show-SecurityWarning)) {
+if (-not $CheckStartSearchSafety -and -not (Show-SecurityWarning)) {
     if ($pause) {
         Write-Host "Press any key to continue..."
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -329,7 +809,6 @@ $workstation_services = @(
 
 $broker_services = @(
     "BrokerInfrastructure" # Background Tasks Infrastructure Service - Controls which background tasks can run on the system.
-    "SystemEventsBroker" # System Events Broker - Coordinates the execution of background tasks for Windows Store and UWP applications. If stopped, these tasks might not be triggered, affecting the functionality of the apps.
     "SysMain" # SysMain (formerly Superfetch) - Improves system performance by preloading frequently used applications into RAM. It analyzes usage patterns and preloads applications to reduce load times and improve overall performance. Can cause high CPU or disk usage; disable if it causes performance issues.
     # "TokenBroker" -- moved to $stop_services; required for Windows Hello PIN login
 )
@@ -426,6 +905,49 @@ $start_services = @(
     "WlanSvc" # WLAN AutoConfig Service - Manages wireless network connections.
 )
 
+$never_manage_services = @(
+    "SystemEventsBroker" # Keep untouched: no startup-type changes and no stop/start attempts.
+)
+
+$start_search_services = @(
+    "WSearch" # Windows Search - backend for Start menu type-to-search.
+    "TextInputManagementService" # Text input routing for Start menu search box.
+    "TabletInputService" # Legacy text input service used on some Windows builds.
+    "WpnService" # Push notifications channel used by Start UI state updates.
+    "WpnUserService_*" # Per-user push notifications channel used by Start UI state updates.
+)
+
+$start_search_auto_services = @(
+    "WSearch" # Windows Search - backend for Start menu type-to-search.
+    "WpnService" # Push notifications channel used by Start UI state updates.
+    "WpnUserService_*" # Per-user push notifications channel used by Start UI state updates.
+)
+
+$start_search_start_only_services = @(
+    "TextInputManagementService" # Startup behavior is OS-managed on many builds; ensure running only.
+    "TabletInputService" # Not present on all builds; start only when available.
+)
+
+$start_search_stability_services = @(
+    "BrokerInfrastructure" # Background task broker used by Start and Search host flow.
+    "StateRepository" # Maintains shell/app model state used by Start interactions.
+    "SystemEventsBroker" # Coordinates background events consumed by modern shell/UWP components.
+    "AppXSVC" # App model deployment/runtime glue used by Start app activation.
+    "ClipSVC" # Client licensing service used by Microsoft Store-backed app activation.
+    "ShellHWDetection" # Shell event routing that can impact focus/input behavior.
+    "TimeBrokerSvc" # Background work coordinator for WinRT tasks.
+    "UserDataSvc_*" # Per-user data access service used by modern shell surfaces.
+    "UnistoreSvc_*" # Per-user data storage service paired with UserDataSvc.
+    "ConsentUxUserSvc_*" # Per-user consent UX host that can influence shell prompts/focus.
+    "camsvc" # Capability broker used by modern app capability checks.
+    "cbdhsvc_*" # Per-user clipboard service used by modern UX surfaces.
+    "WSearch" # Keep aligned with Start/Search dependency set.
+    "TextInputManagementService" # Keep aligned with Start/Search dependency set.
+    "TabletInputService" # Keep aligned with Start/Search dependency set.
+    "WpnService" # Keep aligned with Start/Search dependency set.
+    "WpnUserService_*" # Keep aligned with Start/Search dependency set.
+)
+
 function Set-ServiceStartupType {
     [CmdletBinding(SupportsShouldProcess)]
     param (
@@ -467,19 +989,25 @@ function Set-ServiceStartupType {
         # Protection for services required by Start menu type-to-search and Windows Hello PIN
         $protectedFromChange = @(
             "BrokerInfrastructure" # Background Tasks Infrastructure Service - required for modern shell components including Start and SearchHost
+            "SystemEventsBroker" # System Events Broker - keep OS-managed to preserve shell/UWP event flow
             "StateRepository" # State Repository Service - maintains Start menu and Shell state; keyboard focus logic breaks without it
             "AppXSVC" # AppX Deployment Service - needed for Start menu app model integration
             "ClipSVC" # Client License Service - required for Start menu app activation and focus handling
             "ShellHWDetection" # Shell Hardware Detection - participates in shell event routing; disabling breaks Start input focus
-            "WpnUserService" # Windows Push Notifications User Service - used by Start for UI state signaling
-            "WSearch" # Windows Search - provides SearchHost backend; without it Start falls back to icon navigation
-            "TextInputManagementService" # Text Input Management Service - routes keyboard input to Start menu search box
-            "TabletInputService" # Touch Keyboard and Handwriting Panel Service - legacy text input service
             "TokenBroker" # Token Broker - manages authentication tokens; required for Windows Hello PIN login
             "WbioSrvc" # Windows Biometric Service - required for Windows Hello PIN and biometric login
             "cloudidsvc" # Microsoft Cloud Identity Service - required for Windows Hello PIN with Microsoft accounts
         )
-        if ($serviceName -in $protectedFromChange -or $serviceName -like "WpnUserService_*") {
+
+        if (Test-IsManagedStartupService -ServiceName $serviceName) {
+            Write-Log "Service $serviceName uses OS-managed startup behavior. Skipping startup type change." "Verbose"
+            return "Skipped"
+        }
+
+        $isProtectedFromChange = ($serviceName -in $protectedFromChange)
+        $isStartSearchService = Test-IsStartSearchService -ServiceName $serviceName
+        $isStartSearchDowngrade = $startsearch -and $isStartSearchService -and ($startupType -ne "Automatic")
+        if ($isStartSearchDowngrade -or $isProtectedFromChange) {
             Write-Log "Protecting service $serviceName from startup type change (required for Start menu search or PIN login). Skipping." "Verbose"
             return "Skipped"
         }
@@ -487,6 +1015,12 @@ function Set-ServiceStartupType {
         $serviceHandle = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
         if ($null -eq $serviceHandle) {
             Write-Log "Service $serviceName does not exist. Skipping." "Verbose"
+            return "Skipped"
+        }
+
+        $currentStartupType = Get-ServiceStartupTypeSafe -ServiceName $serviceHandle.Name
+        if ($currentStartupType -eq $startupType) {
+            Write-Log "Service $($serviceHandle.Name) already has startup type '$startupType'. Skipping." "Verbose"
             return "Skipped"
         }
 
@@ -501,6 +1035,11 @@ function Set-ServiceStartupType {
     catch {
         $msg = $_.Exception.Message
         if ($msg -like "*Access is denied*" -or $msg -like "*PermissionDenied*") {
+            if (Test-IsKnownProtectedInputService -ServiceName $serviceName) {
+                Write-Log "Startup type change denied for protected/input service $serviceName. Treating as skipped." "Warning"
+                return "Skipped"
+            }
+
             Write-Log "Permission denied for $serviceName. Attempting with 'sc' command." "Warning"
             try {
                 if ($psCmdlet.ShouldProcess("Service: $serviceName (via sc.exe)", "Set startup type to $startupType")) {
@@ -516,6 +1055,16 @@ function Set-ServiceStartupType {
                         return "Success"
                     }
                     else {
+                        $registryResult = Set-ServiceStartupTypeRegistryFallback -ServiceName $serviceName -StartupType $startupType
+                        if ($registryResult -eq "Success" -or $registryResult -eq "Skipped") {
+                            return $registryResult
+                        }
+
+                        if (Test-IsKnownProtectedInputService -ServiceName $serviceName) {
+                            Write-Log "sc denied startup type change for protected/input service $serviceName. Treating as skipped." "Warning"
+                            return "Skipped"
+                        }
+
                         Write-Log "sc command failed for $serviceName`: $result" "Error"
                         return "Failed"
                     }
@@ -523,6 +1072,11 @@ function Set-ServiceStartupType {
                 return "Success" # WhatIf mode
             }
             catch {
+                $registryResult = Set-ServiceStartupTypeRegistryFallback -ServiceName $serviceName -StartupType $startupType
+                if ($registryResult -eq "Success" -or $registryResult -eq "Skipped") {
+                    return $registryResult
+                }
+
                 Write-Log "sc command also failed for $serviceName`: $($_.Exception.Message)" "Error"
                 return "Failed"
             }
@@ -577,14 +1131,14 @@ function Invoke-ServiceManagement {
         "SamSs" # Security Accounts Manager - stores security information for local accounts
         "ClipSVC" # Client License Service - required for Start menu app activation and focus handling
         "ShellHWDetection" # Shell Hardware Detection - shell event routing; disabling breaks Start input focus
-        "WSearch" # Windows Search - provides SearchHost backend for Start menu type-to-search
-        "TextInputManagementService" # Text Input Management Service - routes keyboard input to Start menu search box
         "TokenBroker" # Token Broker - manages authentication tokens; required for Windows Hello PIN login
         "WbioSrvc" # Windows Biometric Service - required for Windows Hello PIN and biometric login
         "cloudidsvc" # Microsoft Cloud Identity Service - required for Windows Hello PIN with Microsoft accounts
     )
 
-    if ($action -eq "Stop" -and ($serviceName -in $protectedServices)) {
+    $isProtectedFromStop = ($serviceName -in $protectedServices)
+    $isStartSearchService = Test-IsStartSearchService -ServiceName $serviceName
+    if ($action -eq "Stop" -and (($startsearch -and $isStartSearchService) -or $isProtectedFromStop)) {
         Write-Log "Protecting critical service $serviceName from being stopped. Skipping." "Verbose"
         return "Skipped"
     }
@@ -638,8 +1192,8 @@ function Invoke-ServiceManagement {
                     return "Success" # WhatIf mode
                 }
                 else {
-                    Write-Log "The service $($serviceHandle.Name) is already running." "Verbose"
-                    return "Success"
+                    Write-Log "The service $($serviceHandle.Name) is already running. Skipping start." "Verbose"
+                    return "Skipped"
                 }
             }
             "Stop" {
@@ -662,6 +1216,11 @@ function Invoke-ServiceManagement {
     catch {
         $msg = $_.Exception.Message
         if ($msg -like "*Access is denied*" -or $msg -like "*PermissionDenied*") {
+            if (Test-IsKnownProtectedInputService -ServiceName $serviceName) {
+                Write-Log "Service action '$action' denied for protected/input service $serviceName. Treating as skipped." "Warning"
+                return "Skipped"
+            }
+
             Write-Log "Permission denied for $serviceName. Attempting with 'net' command." "Warning"
             try {
                 if ($psCmdlet.ShouldProcess("Service: $serviceName (via net.exe)", "$action service")) {
@@ -800,12 +1359,92 @@ else {
     $stop_services += $broker_services
 }
 
+if ($startsearch -eq $true) {
+    Write-Log "Start/Search services are enabled. Restoring Start menu type-to-search dependencies." "Info"
+
+    # Remove Start/Search and shell-stability patterns from down-level lists so later phases
+    # do not introduce shell input/state desynchronization.
+    $manual_services = Remove-ServicePatternsFromList -SourceList $manual_services -PatternsToRemove $start_search_services
+    $disable_services = Remove-ServicePatternsFromList -SourceList $disable_services -PatternsToRemove $start_search_services
+    $stop_services = Remove-ServicePatternsFromList -SourceList $stop_services -PatternsToRemove $start_search_services
+
+    $manual_services = Remove-ServicePatternsFromList -SourceList $manual_services -PatternsToRemove $start_search_stability_services
+    $disable_services = Remove-ServicePatternsFromList -SourceList $disable_services -PatternsToRemove $start_search_stability_services
+    $stop_services = Remove-ServicePatternsFromList -SourceList $stop_services -PatternsToRemove $start_search_stability_services
+
+    $auto_services += $start_search_auto_services
+    $start_services += $start_search_start_only_services
+
+    # Ensure core shell brokers are started, but do not force startup type changes here.
+    $start_services += @(
+        "BrokerInfrastructure",
+        "StateRepository",
+        "ShellHWDetection"
+    )
+}
+else {
+    Write-Log "Start/Search is disabled. Start menu type-to-search may stop working (Ctrl+Esc then typing)." "Warning"
+    $manual_services += $start_search_services
+    $stop_services += $start_search_services
+}
+
+# Remove services that should never be managed from all dynamic lists.
+$auto_services = Remove-ServicePatternsFromList -SourceList $auto_services -PatternsToRemove $never_manage_services
+$manual_services = Remove-ServicePatternsFromList -SourceList $manual_services -PatternsToRemove $never_manage_services
+$disable_services = Remove-ServicePatternsFromList -SourceList $disable_services -PatternsToRemove $never_manage_services
+$stop_services = Remove-ServicePatternsFromList -SourceList $stop_services -PatternsToRemove $never_manage_services
+$start_services = Remove-ServicePatternsFromList -SourceList $start_services -PatternsToRemove $never_manage_services
+
+if ($CheckStartSearchSafety) {
+    # Audit mode is intentionally read-only and returns an explicit exit code for automation.
+    $isSafe = Invoke-StartSearchSafetyCheck -AutoList $auto_services -ManualList $manual_services -DisableList $disable_services -StopList $stop_services -StartList $start_services
+    Save-Log
+
+    if ($pause) {
+        Write-Log "=== Safety audit completed. Press any key to continue... ===" "Info"
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    }
+
+    if ($isSafe) {
+        exit 0
+    }
+    else {
+        exit 3
+    }
+}
+
 # Process services with enhanced tracking
-Invoke-ServiceProcess -ServiceList $auto_services -Operation "Automatic Services" -StartupType "Automatic" -Action "Start"
-Invoke-ServiceProcess -ServiceList $manual_services -Operation "Manual Services" -StartupType "Manual" -Action "Stop"
-Invoke-ServiceProcess -ServiceList $disable_services -Operation "Disabled Services" -StartupType "Disabled" -Action "Stop"
-Invoke-ServiceProcess -ServiceList $stop_services -Operation "Services to Stop" -Action "Stop"
-Invoke-ServiceProcess -ServiceList $start_services -Operation "Services to Start" -Action "Start"
+if ($NoBounce) {
+    Write-Log "NoBounce mode enabled: skipping auto/manual stop-start transitions while still enforcing disabled services as stopped." "Info"
+}
+
+$autoAction = if ($NoBounce) { "" } else { "Start" }
+$manualAction = if ($NoBounce) { "" } else { "Stop" }
+$disabledAction = "Stop"
+
+Invoke-ServiceProcess -ServiceList $auto_services -Operation "Automatic Services" -StartupType "Automatic" -Action $autoAction
+Invoke-ServiceProcess -ServiceList $manual_services -Operation "Manual Services" -StartupType "Manual" -Action $manualAction
+Invoke-ServiceProcess -ServiceList $disable_services -Operation "Disabled Services" -StartupType "Disabled" -Action $disabledAction
+
+if (-not $NoBounce) {
+    Invoke-ServiceProcess -ServiceList $stop_services -Operation "Services to Stop" -Action "Stop"
+    Invoke-ServiceProcess -ServiceList $start_services -Operation "Services to Start" -Action "Start"
+}
+else {
+    Write-Log "NoBounce mode: skipped explicit stop/start service lists in this run." "Info"
+}
+
+if (-not $NoBounce -and $startsearch -and -not $PSBoundParameters.ContainsKey('WhatIf')) {
+    Invoke-StartSearchSelfHeal
+    Invoke-StartSearchInputStackRepair
+    Invoke-ExplorerRefreshAfterBounce
+}
+elseif (-not $NoBounce -and $startsearch -and $PSBoundParameters.ContainsKey('WhatIf')) {
+    Write-Log "WhatIf mode: Start/Search repair actions are preview-only. Run elevated without -WhatIf to apply fixes." "Warning"
+}
+elseif ($NoBounce -and $startsearch) {
+    Write-Log "NoBounce mode: skipped post-run Start/Search repair actions because they restart service/process state." "Info"
+}
 
 # Display summary
 Write-Log "=== Service Management Summary ===" "Info"
@@ -838,4 +1477,3 @@ else {
     Write-Log "Script completed successfully" "Info"
     exit 0
 }
-```

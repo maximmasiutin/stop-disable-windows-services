@@ -7,11 +7,11 @@ This PowerShell script comprehensively manages Windows services by stopping, sta
 ## Important Requirements
 
 - Administrator privileges required: This script must be run as Administrator to modify Windows services
-- PowerShell 7.5 or later required: This script targets PowerShell Core (pwsh) 7.5+
+- PowerShell version: PowerShell Core (pwsh) 7.5+ is the recommended and tested runtime; the CMD wrapper can fall back to Windows PowerShell when pwsh is not available
 - PowerShell execution policy: If running the script gives an error that scripts cannot be loaded because running scripts are disabled, enable script execution by running `Set-ExecutionPolicy RemoteSigned` in PowerShell
 
 > [!IMPORTANT]
-> Backup Recommended: Because this script modifies over 200 services and disables several security components (like Windows Defender), it is highly recommended to create a System Restore Point before running it without the `-WhatIf` flag.
+> Backup Recommended: Because this script modifies over 200 services and disables several security components, it is highly recommended to create a System Restore Point before running it without the `-WhatIf` flag.
 
 ## What This Script Does and What it Does Not
 
@@ -21,7 +21,7 @@ The script manages over 200 Windows services across these categories:
 - Windows Core Services: Gaming, telemetry, diagnostics, update services, background apps
 - Network Services: Bluetooth, WiFi, remote access, sharing services
 - Development Services: Docker, virtualization, debugging services
-- Security Services: Windows Defender, Smart Card (SCardSvr, ScDeviceEnum, DevQueryBroker, WPDBusEnum), biometric services
+- Security Services: Smart Card (SCardSvr, ScDeviceEnum, DevQueryBroker, WPDBusEnum), biometric services
 - Audio/Media Services: Windows Audio, Audio Endpoint Builder, Focusrite Control Server, multimedia services
 - Printing/Scanning Services: Print Spooler, Canon, HP, ScanSnap, Print Scan Broker, WIA services
 
@@ -60,8 +60,11 @@ Controls workstation networking services (LanmanWorkstation):
 
 Controls Windows background task and token broker services:
 
-- `$True` (default): Broker services (BrokerInfrastructure, SystemEventsBroker, SysMain, TokenBroker) set to Automatic startup and started
+- `$True` (default): Broker services (BrokerInfrastructure, SysMain) set to Automatic startup and started
 - `$False`: Broker services set to Manual startup and stopped
+
+Note: `SystemEventsBroker` is intentionally not managed by this script.
+Note: `TokenBroker` is managed separately in the stop list and protected from startup-type changes/stops when required for sign-in safety.
 
 ### -pause
 
@@ -75,6 +78,44 @@ Controls script completion behavior:
 - When specified, shows what the script would do without actually making changes
 - Useful for testing and validation before running the actual changes
 - Usage Strategy: Once you are satisfied with the `-WhatIf` output and want to apply the changes, simply remove the `-WhatIf` parameter.
+- In `-WhatIf` mode, post-run Start/Search repair actions are preview-only and are not applied.
+
+### -startsearch
+
+Controls Start menu type-to-search dependencies (including `WSearch`, `TextInputManagementService`, and push notification channels used by shell UI state):
+
+- `$True` (default): Keeps Start/Search typing dependencies protected and available, excludes a broader shell-stability service set from stop/downgrade phases, runs a post-run self-heal/input repair pass, and performs end-of-run Explorer refresh when `-NoBounce` is not used
+- `$False`: Moves these services to Manual and stops them; Start menu typing can stop working until restored
+
+Notes:
+
+- `TextInputManagementService` is treated as startup-type managed; the script ensures it is started but does not force startup type changes.
+- For known protected/input services that return access denied on startup-type or action operations, the script treats that as skipped instead of failed.
+
+### -NoBounce
+
+- Changes startup types only and skips immediate stop/start transitions
+- Useful when you want to avoid runtime shell/input churn during the same run
+- In this mode, explicit stop/start lists and post-run Start/Search repair actions are skipped
+- In this mode, end-of-run Explorer refresh is also skipped
+- Disabled services are still stopped in this mode for consistency and security hardening
+
+Warning when NOT using `-NoBounce`:
+
+- After a run with immediate stop/start transitions, Start menu behavior may be temporarily inconsistent.
+- `Ctrl+Esc` may not immediately put keyboard focus into Start search.
+- If you start typing in Start menu without explicitly placing the mouse cursor in the search input line, typing may not work until shell input focus is restored.
+
+### -CheckStartSearchSafety
+
+- Runs a read-only audit and exits without changing services
+- Reports whether planned actions could break `Ctrl+Esc` then typing in Start/Search
+- Exit code `0`: no risk detected; exit code `3`: potential risk detected
+
+### -Force
+
+- Skips the interactive security warning prompt
+- Useful for unattended execution and scheduled runs
 
 ### -Verbose
 
@@ -100,6 +141,12 @@ Controls script completion behavior:
 # Test what would happen without making changes
 ./stop-services.ps1 -audio $False -WhatIf
 
+# Apply startup type changes only (no immediate stop/start)
+./stop-services.ps1 -audio $False -print $False -NoBounce
+
+# Recommended stable profile for this repository use case
+./stop-services.ps1 -workstation $False -audio $True -print $False -brokers $True -startsearch $True -NoBounce -Force
+
 # Detailed logging with verbose output
 ./stop-services.ps1 -audio $False -print $False -Verbose -LogFile "C:\ServiceLog.txt"
 ```
@@ -118,6 +165,15 @@ stop-services.cmd audio print
 REM Disable workstation and broker services
 stop-services.cmd noworkstation nobrokers
 
+REM Disable Start/Search typing dependencies
+stop-services.cmd nostartsearch
+
+REM Startup-type changes only (no immediate stop/start)
+stop-services.cmd nobounce
+
+REM Recommended stable profile
+stop-services.cmd noworkstation audio nobounce
+
 REM Pause at completion
 stop-services.cmd pause
 
@@ -133,6 +189,7 @@ stop-services.cmd help
 - Better error handling: Provides clear error messages and exit codes
 - Help system: Built-in help with `help` or `?` arguments
 - WhatIf support: Support for testing mode via `whatif` argument
+- Conservative defaults: CMD wrapper defaults to audio/print disabled unless you explicitly pass `audio` and/or `print`
 
 ## Safety Features
 
@@ -163,7 +220,7 @@ The script includes extensive documentation of critical services that should nev
 | Windows Core | 45+ | Gaming, Store, Update, Telemetry services |
 | Network and Connectivity | 20+ | Bluetooth, WiFi, Remote Access services |
 | Development and Virtualization | 15+ | VMware, Hyper-V, Container services |
-| Security and Smart Card | 15+ | Defender, Smart Card, Biometric, Remote Registry |
+| Security and Smart Card | 15+ | Smart Card, Biometric, Remote Registry |
 | Printing and Scanning | 15 | Spooler, Canon, HP, ScanSnap, WIA services |
 
 ## Advanced Features
@@ -191,6 +248,7 @@ The script intelligently handles services with dynamic names:
 2. "Cannot find service" warnings: Normal for services not installed on your system
 3. Execution policy errors: Run `Set-ExecutionPolicy RemoteSigned` first
 4. Services not stopping: Some services have dependencies; check event logs
+5. Start menu typing not working: run with `-startsearch $True` (or without `nostartsearch` in CMD), then restart `explorer.exe` or sign out/sign in
 
 ### Debugging Tools
 
@@ -204,6 +262,6 @@ The script intelligently handles services with dynamic names:
 - System Impact: This script modifies many system services and may affect system functionality
 - Backup Recommended: Consider creating a system restore point before running
 - Vendor Software: May affect functionality of ASUS, Dell, Intel, NVIDIA, and other vendor software
-- Windows Search: The GUI will behave differently; for example, you will need to explicitly click the search field in the Start menu instead of simply starting to type. This happens because the Text Input Management Service (`TextInputManagementService`) is stopped, which is responsible for coordinating keyboard focus and text input for modern Windows UI elements.
+- Windows Search: If Start/Search dependencies are disabled (for example with `-startsearch $False`), Start menu type-to-search can stop working. Re-enable Start/Search (`-startsearch $True`) and restart Explorer or sign out/sign in to restore shell input state.
 - Gaming Impact: May affect Xbox Live, gaming overlays, and related features
 - Office Impact: May affect Microsoft Office Click-to-Run updates and features

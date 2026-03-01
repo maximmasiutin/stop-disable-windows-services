@@ -1,6 +1,10 @@
 @ECHO OFF
 SETLOCAL EnableDelayedExpansion
 
+REM Wrapper defaults are intentionally conservative:
+REM - audio/print disabled unless explicitly enabled by arguments
+REM - workstation/brokers/startsearch enabled by default
+
 REM Check for administrative privileges
 NET SESSION >nul 2>&1
 IF %ERRORLEVEL% NEQ 0 (
@@ -11,28 +15,40 @@ IF %ERRORLEVEL% NEQ 0 (
 )
 
 REM Initialize parameters with defaults
-SET AUDIO_FLAG="$False"
-SET PRINT_FLAG="$False"
-SET PAUSE_FLAG="$False"
-SET WORKSTATION_FLAG="$True"
-SET BROKERS_FLAG="$True"
+REM Note: these defaults differ from stop-services.ps1 defaults for audio/print.
+SET AUDIO_FLAG=-audio:$false
+SET PRINT_FLAG=-print:$false
+SET PAUSE_FLAG=-pause:$false
+SET WORKSTATION_FLAG=-workstation:$true
+SET BROKERS_FLAG=-brokers:$true
+SET STARTSEARCH_FLAG=-startsearch:$true
+SET NOBOUNCE_FLAG=
 SET WHATIF_FLAG=
+SET FORCE_FLAG=
 
 REM Parse command line arguments
 :ParseArgs
 IF "%~1"=="" GOTO :EndParse
-IF /I "%~1"=="pause" SET PAUSE_FLAG="$True"
-IF /I "%~1"=="-pause" SET PAUSE_FLAG="$True"
-IF /I "%~1"=="audio" SET AUDIO_FLAG="$True"
-IF /I "%~1"=="-audio" SET AUDIO_FLAG="$True"
-IF /I "%~1"=="print" SET PRINT_FLAG="$True"
-IF /I "%~1"=="-print" SET PRINT_FLAG="$True"
-IF /I "%~1"=="noworkstation" SET WORKSTATION_FLAG="$False"
-IF /I "%~1"=="-noworkstation" SET WORKSTATION_FLAG="$False"
-IF /I "%~1"=="nobrokers" SET BROKERS_FLAG="$False"
-IF /I "%~1"=="-nobrokers" SET BROKERS_FLAG="$False"
-IF /I "%~1"=="whatif" SET WHATIF_FLAG="-WhatIf"
-IF /I "%~1"=="-whatif" SET WHATIF_FLAG="-WhatIf"
+IF /I "%~1"=="pause" SET PAUSE_FLAG=-pause:$true
+IF /I "%~1"=="-pause" SET PAUSE_FLAG=-pause:$true
+IF /I "%~1"=="audio" SET AUDIO_FLAG=-audio:$true
+IF /I "%~1"=="-audio" SET AUDIO_FLAG=-audio:$true
+IF /I "%~1"=="print" SET PRINT_FLAG=-print:$true
+IF /I "%~1"=="-print" SET PRINT_FLAG=-print:$true
+IF /I "%~1"=="noworkstation" SET WORKSTATION_FLAG=-workstation:$false
+IF /I "%~1"=="-noworkstation" SET WORKSTATION_FLAG=-workstation:$false
+IF /I "%~1"=="nobrokers" SET BROKERS_FLAG=-brokers:$false
+IF /I "%~1"=="-nobrokers" SET BROKERS_FLAG=-brokers:$false
+IF /I "%~1"=="startsearch" SET STARTSEARCH_FLAG=-startsearch:$true
+IF /I "%~1"=="-startsearch" SET STARTSEARCH_FLAG=-startsearch:$true
+IF /I "%~1"=="nostartsearch" SET STARTSEARCH_FLAG=-startsearch:$false
+IF /I "%~1"=="-nostartsearch" SET STARTSEARCH_FLAG=-startsearch:$false
+IF /I "%~1"=="nobounce" SET NOBOUNCE_FLAG=-NoBounce
+IF /I "%~1"=="-nobounce" SET NOBOUNCE_FLAG=-NoBounce
+IF /I "%~1"=="whatif" SET WHATIF_FLAG=-WhatIf
+IF /I "%~1"=="-whatif" SET WHATIF_FLAG=-WhatIf
+IF /I "%~1"=="force" SET FORCE_FLAG=-Force
+IF /I "%~1"=="-force" SET FORCE_FLAG=-Force
 IF /I "%~1"=="help" GOTO :ShowHelp
 IF /I "%~1"=="-help" GOTO :ShowHelp
 IF /I "%~1"=="?" GOTO :ShowHelp
@@ -80,24 +96,40 @@ IF %POWERSHELLEXECUTABLE%=="" (
 ECHO Using PowerShell executable: %POWERSHELLEXECUTABLE%
 ECHO.
 ECHO Starting service management with parameters:
-ECHO   Audio services: %AUDIO_FLAG%
-ECHO   Print services: %PRINT_FLAG%
-ECHO   Workstation services: %WORKSTATION_FLAG%
-ECHO   Broker services: %BROKERS_FLAG%
-ECHO   Pause on completion: %PAUSE_FLAG%
+ECHO   Audio services: %AUDIO_FLAG:-audio:=%
+ECHO   Print services: %PRINT_FLAG:-print:=%
+ECHO   Workstation services: %WORKSTATION_FLAG:-workstation:=%
+ECHO   Broker services: %BROKERS_FLAG:-brokers:=%
+ECHO   Start/Search services: %STARTSEARCH_FLAG:-startsearch:=%
+IF NOT "%NOBOUNCE_FLAG%"=="" ECHO   NoBounce mode: enabled ^(skips most immediate stop/start transitions; disabled services are still stopped^)
+ECHO   Pause on completion: %PAUSE_FLAG:-pause:=%
 IF NOT "%WHATIF_FLAG%"=="" ECHO   Mode: TEST MODE (WhatIf)
+IF NOT "%WHATIF_FLAG%"=="" ECHO   NOTE: WhatIf does not apply service changes or post-run Start/Search repairs.
+IF NOT "%FORCE_FLAG%"=="" ECHO   Confirmation prompt: skipped ^(Force^)
 ECHO.
 
 REM Execute PowerShell script with error handling
-%POWERSHELLEXECUTABLE% -ExecutionPolicy Bypass -NoProfile -Command "& '%~dp0stop-services.ps1' -audio %AUDIO_FLAG% -print %PRINT_FLAG% -workstation %WORKSTATION_FLAG% -brokers %BROKERS_FLAG% -pause %PAUSE_FLAG% %WHATIF_FLAG%"
+%POWERSHELLEXECUTABLE% -ExecutionPolicy Bypass -NoProfile -File "%~dp0stop-services.ps1" %AUDIO_FLAG% %PRINT_FLAG% %WORKSTATION_FLAG% %BROKERS_FLAG% %STARTSEARCH_FLAG% %NOBOUNCE_FLAG% %PAUSE_FLAG% %WHATIF_FLAG% %FORCE_FLAG%
 
 IF %ERRORLEVEL% NEQ 0 (
+    SET SCRIPT_EXIT_CODE=%ERRORLEVEL%
+
+    IF "!SCRIPT_EXIT_CODE!"=="2" (
+        ECHO.
+        ECHO WARNING: Script completed with partial failures ^(some services could not be changed^).
+        ECHO This is common when specific services are missing, protected, or blocked by dependencies.
+        ECHO Review PowerShell output or use -Verbose / -LogFile for details.
+        ECHO.
+        ECHO Script completed with warnings.
+        GOTO :EOF
+    )
+
     ECHO.
-    ECHO ERROR: PowerShell script execution failed with error code %ERRORLEVEL%
+    ECHO ERROR: PowerShell script execution failed with error code !SCRIPT_EXIT_CODE!
     ECHO This may indicate insufficient permissions or script execution policy restrictions.
     ECHO Try running: Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
     PAUSE
-    EXIT /B %ERRORLEVEL%
+    EXIT /B !SCRIPT_EXIT_CODE!
 )
 
 ECHO.
@@ -111,18 +143,29 @@ ECHO Usage: %~nx0 [options]
 ECHO.
 ECHO Options:
 ECHO   pause         - Pause before script exits
-ECHO   audio         - Enable audio services (default: disabled)
-ECHO   print         - Enable print services (default: disabled)
+ECHO   audio         - Enable audio services ^(default in CMD wrapper: disabled^)
+ECHO   print         - Enable print services ^(default in CMD wrapper: disabled^)
 ECHO   noworkstation - Disable workstation services (default: enabled)
 ECHO   nobrokers     - Disable broker services (default: enabled)
+ECHO   nostartsearch - Disable Start/Search input services (default: enabled)
+ECHO   nobounce      - Skip most immediate stop/start transitions; disabled services are still stopped
 ECHO   whatif        - Show what would happen without making changes
+ECHO   force         - Skip interactive security confirmation prompt
 ECHO   help, ?       - Show this help message
 ECHO.
 ECHO Examples:
 ECHO   %~nx0 pause
 ECHO   %~nx0 audio print pause
 ECHO   %~nx0 noworkstation nobrokers
+ECHO   %~nx0 noworkstation audio nobounce
+ECHO   %~nx0 nostartsearch
+ECHO   %~nx0 -nostartsearch
 ECHO   %~nx0 whatif
+ECHO   %~nx0 force
+ECHO   %~nx0 noworkstation audio nobounce force
+ECHO.
+ECHO Recovery note: if Start menu typing does not work after service changes,
+ECHO run without 'nostartsearch' and restart explorer.exe or sign out/sign in.
 ECHO.
 ECHO This script requires Administrator privileges to modify Windows services.
 PAUSE

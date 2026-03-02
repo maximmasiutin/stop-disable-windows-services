@@ -703,6 +703,16 @@ $manual_services = @(
     "GoogleUpdaterService*" # Google Updater Service - Manages updates for Google software.
     "gupdate" # Google Update Service - Keeps Google software up to date.
     "HNS" # Host Network Service - Provides support for Windows Virtual Networks.
+    "HotKeyServiceUWP" # HP Hotkey UWP Service - Handles Fn+F1-F12 hotkey combos for brightness, volume, wireless toggle on HP laptops. Part of HP Hotkey Support driver package. Known to cause high CPU/memory on Windows 11.
+    "HPAppHelperCap" # HP App Helper HSA Service - HSA capability broker that launches interdependent HP apps, suspends/resumes devices, adjusts network resources, and enables presence-aware sensors. Runs as background COM service from DriverStore.
+    "HPAudioAnalytics" # HP Audio Analytics Service - Collects audio performance telemetry (mic levels, speaker usage, conferencing stats) and reports to HP cloud. Bundled with HP Hotkey Support driver. Can cause slow shutdown.
+    "HPDiagsCap" # HP Diagnostics HSA Service - HSA capability that exposes hardware/software diagnostic routines to HP apps (HP PC Hardware Diagnostics, HP Support Assistant). Runs DiagsCap.exe from DriverStore.
+    "HPNetworkCap" # HP Network HSA Service - HSA capability that connects to HP cloud for device registration, consent sync, and network resource management. Runs NetworkCap.exe from DriverStore. Not required for normal networking.
+    "hpsvcsscan" # HP Services Scan - Lightweight virtual driver that queries HP Insights Cloud for service entitlements (HP Premium+ Support, HP Smart Support) and auto-downloads entitled software. Delivered via Windows Update on HP platforms.
+    "HPSysInfoCap" # HP System Info HSA Service - HSA capability that reads WMI classes, BIOS tables, serial number, motherboard ID, battery PCM info, and registry keys for HP apps. Can freeze system under heavy WMI load.
+    "HpTouchpointAnalyticsService" # HP Touchpoint Analytics / HP Insights Analytics - Background telemetry service that collects device health, performance, and config data and submits it to HP. Silently installed via Windows Update. Data shared only with opt-in but service runs regardless.
+    "LanWlanWwanSwitchingServiceUWP" # HP LAN/WLAN/WWAN Switching UWP Service - Auto-disables WLAN/WWAN adapters when wired LAN is detected to save battery. Controlled by BIOS setting on HP business notebooks. Part of HP Hotkey Support. Can interfere with VPN connections.
+    "SFUService" # HP SFU (Storage Firmware Update) Service - Manages NVMe/SSD firmware updates on HP systems via the Windows SFU driver framework. Runs from C:\Windows\Firmware\HpSfuService.exe. Only needed during firmware update cycles.
     "ibtsiva" # Intel Wireless Bluetooth Service - Manages Bluetooth connections for Intel wireless devices.
     "igccservice" # Intel Graphics Command Center Service - Manages settings and features for Intel graphics.
     "igfxCUIService*" # Intel HD Graphics Control Panel Service - Manages settings for Intel HD Graphics.
@@ -897,6 +907,17 @@ $stop_services = @(
     "WbioSrvc" # Windows Biometric Service - Manages biometric devices. Required for Windows Hello PIN and biometric login.
     "WpnUserService_*" # Windows Push Notifications User Service - Manages push notifications for specific user sessions. Supports tile, toast, and raw notifications.
     "wuauserv" # Windows Update Service - Manages detection, download, and installation of updates for Windows and other programs. Disabling this service will prevent the use of Windows Update and its automatic updating feature.
+    # HP services
+    "HotKeyServiceUWP" # HP Hotkey UWP Service - Handles Fn+F1-F12 hotkey combos for brightness, volume, wireless toggle on HP laptops. Known high CPU/memory on Win11.
+    "HPAppHelperCap" # HP App Helper HSA Service - HSA capability broker: launches interdependent HP apps, suspends/resumes devices, enables presence-aware sensors.
+    "HPAudioAnalytics" # HP Audio Analytics Service - Collects audio performance telemetry (mic, speaker, conferencing) and reports to HP cloud. Can cause slow shutdown.
+    "HPDiagsCap" # HP Diagnostics HSA Service - Exposes hardware/software diagnostic routines to HP Support Assistant and HP PC Hardware Diagnostics.
+    "HPNetworkCap" # HP Network HSA Service - Connects to HP cloud for device registration, consent sync, and network resource management. Not needed for normal networking.
+    "hpsvcsscan" # HP Services Scan - Queries HP Insights Cloud for service entitlements (Premium+ Support, Smart Support) and auto-downloads entitled software.
+    "HPSysInfoCap" # HP System Info HSA Service - Reads WMI classes, BIOS tables, serial number, motherboard ID, battery PCM, and registry for HP apps. Can freeze system under heavy WMI load.
+    "HpTouchpointAnalyticsService" # HP Touchpoint Analytics / HP Insights Analytics - Background telemetry: collects device health, performance, config data, submits to HP. Silently installed via Windows Update.
+    "LanWlanWwanSwitchingServiceUWP" # HP LAN/WLAN/WWAN Switching UWP Service - Auto-disables WLAN/WWAN when wired LAN detected. BIOS-controlled on business notebooks. Can interfere with VPN.
+    "SFUService" # HP SFU (Storage Firmware Update) Service - Manages NVMe/SSD firmware updates via Windows SFU driver framework. Only needed during firmware update cycles.
 )
 
 $start_services = @(

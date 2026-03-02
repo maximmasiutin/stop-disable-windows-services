@@ -49,12 +49,20 @@ Controls printing, scanning, and imaging services (Spooler, Canon, HP, ScanSnap,
 - `$True` (default in PowerShell): Print services set to Automatic startup and started
 - `$False` (default in CMD wrapper): Print services set to Manual startup and stopped
 
-### -workstation
+### SMB Service Control
 
-Controls workstation networking services (LanmanWorkstation):
+Both LanmanServer (Server) and LanmanWorkstation (Workstation) support three modes each.
+For each service, pick one mode. The three options per service are mutually exclusive.
 
-- `$True` (default): Workstation services set to Automatic startup and started
-- `$False`: Workstation services set to Manual startup and stopped
+| Mode | Server (LanmanServer) | Workstation (LanmanWorkstation) |
+|---|---|---|
+| **Manual + stopped** (default) | `-server:$false` / CMD: `manualserver` | `-workstation:$false` / CMD: `manualworkstation` |
+| **Automatic + started** | `-server:$true` / CMD: `autoserver` | `-workstation:$true` / CMD: `autoworkstation` |
+| **Disabled + stopped** | `-DisableServer` / CMD: `disableserver` | `-DisableWorkstation` / CMD: `disableworkstation` |
+
+**-DisableServer**: Prevents file/print/named-pipe sharing from this machine even after reboot.
+
+**-DisableWorkstation**: Prevents SMB client access (mapped drives, UNC paths, domain resources) even after reboot. Other services (e.g. Netlogon, Browser) may log errors.
 
 ### -brokers
 
@@ -97,14 +105,23 @@ Notes:
 - Changes startup types only and skips immediate stop/start transitions
 - Useful when you want to avoid runtime shell/input churn during the same run
 - In this mode, explicit stop/start lists and post-run Start/Search repair actions are skipped
-- In this mode, end-of-run Explorer refresh is also skipped
+- In this mode, end-of-run explorer.exe/ctfmon.exe restart is also skipped
 - Disabled services are still stopped in this mode for consistency and security hardening
 
-Warning when NOT using `-NoBounce`:
+### -NoRestartExplorer
 
-- After a run with immediate stop/start transitions, Start menu behavior may be temporarily inconsistent.
-- `Ctrl+Esc` may not immediately put keyboard focus into Start search.
-- If you start typing in Start menu without explicitly placing the mouse cursor in the search input line, typing may not work until shell input focus is restored.
+- Skips the post-run kill and relaunch of explorer.exe and ctfmon.exe
+- By default (without `-NoBounce` and without `-NoRestartExplorer`), the script kills and relaunches both processes to restore Start menu keyboard input state after service changes
+- CMD wrapper: pass `norestartexplorer`
+
+> [!WARNING]
+> **Explorer restart behavior:** By default, the script **kills and relaunches explorer.exe and ctfmon.exe** at the end of each run (unless `-NoBounce` or `-NoRestartExplorer` is used). This is required for Start menu auto-type (pressing Ctrl+Esc then immediately typing to search) to work after service changes. Without this restart:
+> - Ctrl+Esc may open Start menu but keyboard focus will not be in the search input
+> - Typing after Ctrl+Esc may not produce any visible text
+> - The user must click the search input line with the mouse to activate typing
+> - Alternatively, manually restart explorer.exe or sign out and sign back in
+>
+> The explorer restart causes a brief visual flash as the taskbar and desktop icons reload.
 
 ### -CheckStartSearchSafety
 
@@ -132,23 +149,26 @@ Warning when NOT using `-NoBounce`:
 ### Basic Usage (PowerShell)
 
 ```powershell
-# Default: Keep audio, print, workstation, brokers enabled
-./stop-services.ps1
+# Default: audio/print on, server/workstation Manual+stopped, brokers Automatic
+./stop-services.ps1 -Force
 
-# Disable audio and print services, pause at end
-./stop-services.ps1 -audio $False -print $False -pause $True
+# Disable both SMB services (startup type = Disabled)
+./stop-services.ps1 -DisableServer -DisableWorkstation -Force
+
+# Disable server, keep workstation Auto (mapped drives, domain access)
+./stop-services.ps1 -DisableServer -workstation $True -Force
 
 # Test what would happen without making changes
-./stop-services.ps1 -audio $False -WhatIf
+./stop-services.ps1 -WhatIf
 
-# Apply startup type changes only (no immediate stop/start)
-./stop-services.ps1 -audio $False -print $False -NoBounce
+# Apply startup type changes only (no immediate stop/start, no explorer restart)
+./stop-services.ps1 -NoBounce -Force
 
-# Recommended stable profile for this repository use case
-./stop-services.ps1 -workstation $False -audio $True -print $False -brokers $True -startsearch $True -NoBounce -Force
+# Skip explorer.exe restart (keeps taskbar stable, but Start auto-type may break)
+./stop-services.ps1 -NoRestartExplorer -Force
 
 # Detailed logging with verbose output
-./stop-services.ps1 -audio $False -print $False -Verbose -LogFile "C:\ServiceLog.txt"
+./stop-services.ps1 -Verbose -LogFile "C:\ServiceLog.txt" -Force
 ```
 
 ### CMD Wrapper Usage
@@ -156,23 +176,29 @@ Warning when NOT using `-NoBounce`:
 The included `stop-services.cmd` provides a convenient wrapper:
 
 ```cmd
-REM Default behavior (audio/print disabled, workstation/brokers enabled)
-stop-services.cmd
+REM Default behavior (audio/print disabled, server/workstation Manual+stopped)
+stop-services.cmd force
 
 REM Enable audio and print services
-stop-services.cmd audio print
+stop-services.cmd audio print force
 
-REM Disable workstation and broker services
-stop-services.cmd noworkstation nobrokers
+REM Disable both SMB server and client (startup type = Disabled)
+stop-services.cmd disableserver disableworkstation force
+
+REM Disable only SMB server, keep workstation Manual+stopped
+stop-services.cmd disableserver force
+
+REM Disable broker services
+stop-services.cmd nobrokers force
 
 REM Disable Start/Search typing dependencies
-stop-services.cmd nostartsearch
+stop-services.cmd nostartsearch force
 
 REM Startup-type changes only (no immediate stop/start)
-stop-services.cmd nobounce
+stop-services.cmd nobounce force
 
-REM Recommended stable profile
-stop-services.cmd noworkstation audio nobounce
+REM Stable profile with audio
+stop-services.cmd audio nobounce force
 
 REM Pause at completion
 stop-services.cmd pause
@@ -186,10 +212,10 @@ stop-services.cmd help
 - Administrative privilege checking: Automatically verifies admin rights
 - PowerShell detection: Finds PowerShell Core (pwsh) or Windows PowerShell automatically
 - Enhanced parameter parsing: Supports flexible argument formats
-- Better error handling: Provides clear error messages and exit codes
+- Better error handling: Provides clear error messages and exit codes (0=success, 1=no admin, 2=partial failures, 3=safety risk, 4=mutually exclusive flags)
 - Help system: Built-in help with `help` or `?` arguments
 - WhatIf support: Support for testing mode via `whatif` argument
-- Conservative defaults: CMD wrapper defaults to audio/print disabled unless you explicitly pass `audio` and/or `print`
+- Conservative defaults: CMD wrapper defaults to audio/print disabled, server/workstation Manual+stopped. Pass `audio`, `print`, `autoserver`, `autoworkstation` to enable them.
 
 ## Safety Features
 

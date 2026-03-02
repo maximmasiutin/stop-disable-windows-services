@@ -17,8 +17,30 @@
 .PARAMETER pause
  If this parameter is $True, the script will prompt the user to press any key before it exits. Defaults to $False.
 
+.PARAMETER server
+ Controls the LanmanServer (Server/SMB server) service.
+ - $False (default): Manual + stopped. File/print sharing will not auto-start.
+ - $True: Automatic + started. Enables file/print/named-pipe sharing.
+ Ignored when -DisableServer is used.
+ CMD wrapper: "autoserver" = $True, "manualserver" = $False (default, explicit no-op).
+
 .PARAMETER workstation
- If this parameter is $False, services related to workstation will be switched to Manual startup type and stopped. Otherwise, if this parameter is $True, workstation services' startup type will be Automatic, and such services will be started. Defaults to $True.
+ Controls the LanmanWorkstation (Workstation/SMB client) service.
+ - $False (default): Manual + stopped. SMB client access will not auto-start.
+ - $True: Automatic + started. Enables mapped drives, UNC paths, domain resources.
+ Ignored when -DisableWorkstation is used.
+ CMD wrapper: "autoworkstation" = $True, "manualworkstation" = $False (default, explicit no-op).
+
+.PARAMETER DisableServer
+ Sets LanmanServer startup type to Disabled and stops it. Overrides -server flag.
+ Prevents file/print/named-pipe sharing even after reboot.
+ CMD wrapper: "disableserver". Mutually exclusive with manualserver and autoserver.
+
+.PARAMETER DisableWorkstation
+ Sets LanmanWorkstation startup type to Disabled and stops it. Overrides -workstation flag.
+ Prevents SMB client access (mapped drives, UNC paths, domain resources) even after reboot.
+ Other services (e.g. Netlogon, Browser) may log errors.
+ CMD wrapper: "disableworkstation". Mutually exclusive with manualworkstation and autoworkstation.
 
 .PARAMETER brokers
  If this parameter is $False, services related to brokers will be switched to Manual startup type and stopped. Otherwise, if this parameter is $True, broker services' startup type will be Automatic, and such services will be started. Defaults to $True.
@@ -40,17 +62,48 @@
  This mode reduces runtime churn and is useful when keeping Start menu auto-type stable is a priority.
  In this mode, explicit stop/start lists and post-run Start/Search repair actions are skipped.
  Disabled services are still stopped in this mode for consistency and security hardening.
- When -NoBounce is not used, the script performs an end-of-run Explorer + ctfmon refresh.
- If you run without -NoBounce, temporary shell input-focus issues can occur: Ctrl+Esc may not immediately focus Start search,
- and typing in Start may fail unless the search input line is explicitly focused first.
+ When -NoBounce is not used, the script kills and relaunches explorer.exe and ctfmon.exe
+ at the end to restore Start menu keyboard input state.
+ If you run without -NoBounce, temporary shell input-focus issues can occur: Ctrl+Esc may not
+ immediately focus Start search, and typing in Start may fail unless the search input line is
+ explicitly focused first.
+
+.PARAMETER NoRestartExplorer
+ Skips the post-run restart of explorer.exe and ctfmon.exe. By default (without this flag and
+ without -NoBounce), the script kills and relaunches both processes to restore Start menu
+ keyboard input state after service changes.
+ Warning: without restarting explorer.exe and ctfmon.exe, Start menu auto-type (Ctrl+Esc then
+ typing) may not work. The user may need to click the search input line with the mouse to
+ activate typing, or manually restart explorer.exe, or sign out and sign back in.
+ CMD wrapper: pass "norestartexplorer".
 
 .PARAMETER Force
  Skips the interactive security warning confirmation prompt.
+ CMD wrapper: pass "force".
+
+.PARAMETER LogFile
+ Specify a file path to save detailed operation logs.
+ Example: -LogFile "C:\Logs\ServiceManagement.log"
+ Not supported in CMD wrapper; use PowerShell directly.
+
+.PARAMETER WhatIf
+ Shows what the script would do without making changes. Post-run Start/Search repair actions
+ are preview-only and not applied. CMD wrapper: pass "whatif".
 
 .EXAMPLE
- ./stop-services.ps1 -audio $False -pause $True -workstation $True -brokers $True
+ ./stop-services.ps1 -Force
 
- This example stops audio-related services and sets them to Manual startup type, starts workstation and broker services as Automatic, and prompts the user to press any key before the script exits. Also, it modifies other services as specified in the code.
+ Default: both SMB services Manual+stopped, audio/print per PS1 defaults, brokers Automatic.
+
+.EXAMPLE
+ ./stop-services.ps1 -DisableServer -DisableWorkstation -Force
+
+ Fully disables both SMB services (startup type = Disabled, stopped).
+
+.EXAMPLE
+ ./stop-services.ps1 -workstation $True -audio $True -brokers $True -Force
+
+ Sets LanmanWorkstation to Automatic+started, enables audio, keeps LanmanServer Manual+stopped.
 
 .EXAMPLE
  ./stop-services.ps1 -CheckStartSearchSafety -startsearch $True
@@ -58,7 +111,7 @@
  Runs a read-only audit for Start/Search type-to-search safety and exits without changing services.
 
 .EXAMPLE
- ./stop-services.ps1 -workstation $False -audio $True -print $False -brokers $True -startsearch $True -NoBounce -Force
+ ./stop-services.ps1 -audio $True -NoBounce -Force
 
  Applies startup type changes while avoiding immediate stop/start transitions for reduced shell/input churn.
 #>
@@ -69,9 +122,13 @@ param(
     [bool]$print = $true,
     [bool]$pause = $false,
     [bool]$brokers = $true,
-    [bool]$workstation = $true,
+    [bool]$server = $false,
+    [bool]$workstation = $false,
     [bool]$startsearch = $true,
     [switch]$NoBounce,
+    [switch]$NoRestartExplorer,
+    [switch]$DisableServer,
+    [switch]$DisableWorkstation,
     [switch]$CheckStartSearchSafety,
     [switch]$Force,
     [string]$LogFile = ""
@@ -599,7 +656,19 @@ function Show-SecurityWarning {
 }
 
 Write-Log "=== Windows Service Management Script Started ===" "Info"
-Write-Log "Parameters: audio=$audio, print=$print, workstation=$workstation, brokers=$brokers, startsearch=$startsearch, NoBounce=$NoBounce, pause=$pause, CheckStartSearchSafety=$CheckStartSearchSafety, Force=$Force, WhatIf=$($PSBoundParameters.ContainsKey('WhatIf'))" "Info"
+Write-Log "Parameters: audio=$audio, print=$print, server=$server, workstation=$workstation, brokers=$brokers, startsearch=$startsearch, NoBounce=$NoBounce, NoRestartExplorer=$NoRestartExplorer, DisableServer=$DisableServer, DisableWorkstation=$DisableWorkstation, pause=$pause, CheckStartSearchSafety=$CheckStartSearchSafety, Force=$Force, WhatIf=$($PSBoundParameters.ContainsKey('WhatIf'))" "Info"
+
+# Validate mutual exclusivity: -DisableServer vs -server:$true
+if ($DisableServer -and $server -eq $true) {
+    Write-Error "-DisableServer and -server:`$true are mutually exclusive. Pick one mode for LanmanServer."
+    exit 4
+}
+
+# Validate mutual exclusivity: -DisableWorkstation vs -workstation:$true
+if ($DisableWorkstation -and $workstation -eq $true) {
+    Write-Error "-DisableWorkstation and -workstation:`$true are mutually exclusive. Pick one mode for LanmanWorkstation."
+    exit 4
+}
 
 if (-not $CheckStartSearchSafety -and -not (Show-SecurityWarning)) {
     if ($pause) {
@@ -715,6 +784,7 @@ $manual_services = @(
     "SFUService" # HP SFU (Storage Firmware Update) Service - Manages NVMe/SSD firmware updates on HP systems via the Windows SFU driver framework. Runs from C:\Windows\Firmware\HpSfuService.exe. Only needed during firmware update cycles.
     "ibtsiva" # Intel Wireless Bluetooth Service - Manages Bluetooth connections for Intel wireless devices.
     "igccservice" # Intel Graphics Command Center Service - Manages settings and features for Intel graphics.
+    "IntelGraphicsSoftwareService" # Intel Graphics Software Service - Background service for Intel graphics driver features and telemetry.
     "igfxCUIService*" # Intel HD Graphics Control Panel Service - Manages settings for Intel HD Graphics.
     "Intel(R) Platform License Manager Service" # Intel Platform License Manager Service - Manages licenses for Intel software.
     "Intel(R) TPM Provisioning Service" # Intel TPM Provisioning Service - Manages Trusted Platform Module (TPM) provisioning.
@@ -724,7 +794,7 @@ $manual_services = @(
     "IntuneManagementExtension" # Microsoft Intune Management Extension - Manages Intune operations and device compliance.
     "ipfsvc" # Intel Innovation Platform Framework Service - Supports Intel innovation platform features.
     "jhi_service" # Intel Dynamic Application Loader Host Interface Service - Allows applications to access Intel Dynamic Application Loader.
-    "LanmanServer" # Server Service - Provides file, print, and named-pipe sharing over the network.
+    "LanmanServer" # Server Service (SMB server) - Provides file, print, and named-pipe sharing over the network. Default: Manual+stopped. Use -server:$true for Auto or -DisableServer to disable. See also: LanmanWorkstation in $workstation_services.
     "lfsvc" # Geolocation Service - Manages location data for applications and services.
     "LightingService" # ASUS AURA SYNC Lighting Service - Manages lighting settings for ASUS devices.
     "lmhosts" # TCP/IP NetBIOS Helper - Provides support for NetBIOS over TCP/IP (NetBT) service and NetBIOS name resolution.
@@ -814,7 +884,10 @@ $manual_services = @(
 
 
 $workstation_services = @(
-    "LanmanWorkstation" # Workstation - If disabled, other services will log errors in the event log; if set to Manual, it will not start automatically.
+    # Controlled by -workstation flag. $True = Automatic + started; $False (CMD default) = Manual + stopped.
+    # -DisableWorkstation overrides this flag and sets to Disabled + stopped.
+    # LanmanServer (Server) is separate: controlled by -server and -DisableServer flags.
+    "LanmanWorkstation" # Workstation (SMB client) - Provides SMB client access for mapped drives, UNC paths, and domain resources. If disabled, other services (e.g. Netlogon, Browser) will log errors.
 )
 
 $broker_services = @(
@@ -1360,12 +1433,30 @@ else {
     $stop_services += $print_services
 }
 
-if ($workstation -eq $true) {
-    Write-Log "Setting up workstation services as automatic..." "Info"
+# LanmanServer: -DisableServer > -server:$true (Auto) > -server:$false (Manual, default)
+if ($DisableServer) {
+    Write-Log "DisableServer: setting LanmanServer to Disabled and stopping it..." "Info"
+    $manual_services = $manual_services | Where-Object { $_ -ne "LanmanServer" }
+    $disable_services += @("LanmanServer")
+}
+elseif ($server -eq $true) {
+    Write-Log "Setting up LanmanServer as Automatic and started..." "Info"
+    $manual_services = $manual_services | Where-Object { $_ -ne "LanmanServer" }
+    $auto_services += @("LanmanServer")
+}
+# else: LanmanServer stays in $manual_services (Manual + stopped) by default
+
+# LanmanWorkstation: -DisableWorkstation > -workstation:$true (Auto) > -workstation:$false (Manual, default)
+if ($DisableWorkstation) {
+    Write-Log "DisableWorkstation: setting LanmanWorkstation to Disabled and stopping it..." "Info"
+    $disable_services += @("LanmanWorkstation")
+}
+elseif ($workstation -eq $true) {
+    Write-Log "Setting up LanmanWorkstation as Automatic and started..." "Info"
     $auto_services += $workstation_services
 }
 else {
-    Write-Log "Setting up workstation services as manual..." "Info"
+    Write-Log "Setting up LanmanWorkstation as Manual and stopped..." "Info"
     $manual_services += $workstation_services
     $stop_services += $workstation_services
 }
@@ -1457,8 +1548,13 @@ else {
 
 if (-not $NoBounce -and $startsearch -and -not $PSBoundParameters.ContainsKey('WhatIf')) {
     Invoke-StartSearchSelfHeal
-    Invoke-StartSearchInputStackRepair
-    Invoke-ExplorerRefreshAfterBounce
+    if ($NoRestartExplorer) {
+        Write-Log "NoRestartExplorer mode: skipped explorer.exe and ctfmon.exe restart. Start menu auto-type (Ctrl+Esc then typing) may not work until explorer is manually restarted or user signs out/in." "Warning"
+    }
+    else {
+        Invoke-StartSearchInputStackRepair
+        Invoke-ExplorerRefreshAfterBounce
+    }
 }
 elseif (-not $NoBounce -and $startsearch -and $PSBoundParameters.ContainsKey('WhatIf')) {
     Write-Log "WhatIf mode: Start/Search repair actions are preview-only. Run elevated without -WhatIf to apply fixes." "Warning"

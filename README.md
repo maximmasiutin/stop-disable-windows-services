@@ -1,6 +1,6 @@
 # Stop and Disable Windows Services
 
-Copyright 2024-2025 Maxim Masiutin. All rights reserved
+Copyright 2024-2026 Maxim Masiutin. All rights reserved
 
 This PowerShell script comprehensively manages Windows services by stopping, starting, enabling, and disabling services across multiple categories including audio, printing/scanning, smart card, workstation, broker services, and vendor-specific applications.
 

@@ -1,12 +1,14 @@
 @ECHO OFF
+REM Capture this script's own directory before SETLOCAL/CALL can affect %~dp0
+SET "SCRIPT_DIR=%~dp0"
 SETLOCAL EnableDelayedExpansion
 
 REM Wrapper defaults are intentionally conservative:
 REM - audio/print disabled unless explicitly enabled by arguments
 REM - workstation/brokers/startsearch enabled by default
 
-REM Check for administrative privileges
-NET SESSION >nul 2>&1
+REM Check for administrative privileges (registry check, no service dependency)
+REG QUERY "HKU\S-1-5-19" >nul 2>&1
 IF %ERRORLEVEL% NEQ 0 (
     ECHO ERROR: This script requires administrative privileges.
     ECHO Please run as Administrator.
@@ -59,9 +61,9 @@ GOTO :ParseArgs
 :EndParse
 
 REM Verify PowerShell script exists
-IF NOT EXIST "%~dp0stop-services.ps1" (
+IF NOT EXIST "%SCRIPT_DIR%stop-services.ps1" (
     ECHO ERROR: PowerShell script 'stop-services.ps1' not found in script directory.
-    ECHO Expected location: %~dp0stop-services.ps1
+    ECHO Expected location: %SCRIPT_DIR%stop-services.ps1
     PAUSE
     EXIT /B 2
 )
@@ -109,7 +111,7 @@ IF NOT "%FORCE_FLAG%"=="" ECHO   Confirmation prompt: skipped ^(Force^)
 ECHO.
 
 REM Execute PowerShell script with error handling
-%POWERSHELLEXECUTABLE% -ExecutionPolicy Bypass -NoProfile -File "%~dp0stop-services.ps1" %AUDIO_FLAG% %PRINT_FLAG% %WORKSTATION_FLAG% %BROKERS_FLAG% %STARTSEARCH_FLAG% %NOBOUNCE_FLAG% %PAUSE_FLAG% %WHATIF_FLAG% %FORCE_FLAG%
+%POWERSHELLEXECUTABLE% -ExecutionPolicy Bypass -NoProfile -File "%SCRIPT_DIR%stop-services.ps1" %AUDIO_FLAG% %PRINT_FLAG% %WORKSTATION_FLAG% %BROKERS_FLAG% %STARTSEARCH_FLAG% %NOBOUNCE_FLAG% %PAUSE_FLAG% %WHATIF_FLAG% %FORCE_FLAG%
 
 IF %ERRORLEVEL% NEQ 0 (
     SET SCRIPT_EXIT_CODE=%ERRORLEVEL%
@@ -143,11 +145,11 @@ ECHO Usage: %~nx0 [options]
 ECHO.
 ECHO Options:
 ECHO   pause         - Pause before script exits
-ECHO   audio         - Enable audio services ^(default in CMD wrapper: disabled^)
-ECHO   print         - Enable print services ^(default in CMD wrapper: disabled^)
-ECHO   noworkstation - Disable workstation services (default: enabled)
-ECHO   nobrokers     - Disable broker services (default: enabled)
-ECHO   nostartsearch - Disable Start/Search input services (default: enabled)
+ECHO   audio         - Enable audio services ^(default in CMD wrapper: audio disabled^)
+ECHO   print         - Enable print services ^(default in CMD wrapper: print disabled^)
+ECHO   noworkstation - Disable workstation services (default: workstation enabled)
+ECHO   nobrokers     - Disable broker services (default: brokers enabled)
+ECHO   nostartsearch - Disable Start/Search input services (default: start/search input devices enabled)
 ECHO   nobounce      - Skip most immediate stop/start transitions; disabled services are still stopped
 ECHO   whatif        - Show what would happen without making changes
 ECHO   force         - Skip interactive security confirmation prompt

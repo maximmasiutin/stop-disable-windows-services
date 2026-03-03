@@ -4,9 +4,10 @@ SET "SCRIPT_DIR=%~dp0"
 SETLOCAL EnableDelayedExpansion
 
 REM Wrapper defaults are intentionally conservative:
-REM - audio/print disabled unless explicitly enabled by arguments
+REM - audio/print enabled (true) unless explicitly disabled by arguments (matching .ps1)
 REM - both LanmanServer and LanmanWorkstation default to Manual+stopped
 REM - brokers/startsearch enabled by default
+
 
 REM Check for administrative privileges (registry check, no service dependency)
 REG QUERY "HKU\S-1-5-19" >nul 2>&1
@@ -19,8 +20,9 @@ IF %ERRORLEVEL% NEQ 0 (
 
 REM Initialize parameters with defaults
 REM Both server and workstation default to Manual+stopped (server:$false, workstation:$false)
-SET AUDIO_FLAG=-audio:$false
-SET PRINT_FLAG=-print:$false
+SET AUDIO_FLAG=-audio:$true
+SET PRINT_FLAG=-print:$true
+
 SET PAUSE_FLAG=-pause:$false
 SET SERVER_FLAG=-server:$false
 SET WORKSTATION_FLAG=-workstation:$false
@@ -44,8 +46,13 @@ IF /I "%~1"=="pause" SET PAUSE_FLAG=-pause:$true
 IF /I "%~1"=="-pause" SET PAUSE_FLAG=-pause:$true
 IF /I "%~1"=="audio" SET AUDIO_FLAG=-audio:$true
 IF /I "%~1"=="-audio" SET AUDIO_FLAG=-audio:$true
+IF /I "%~1"=="noaudio" SET AUDIO_FLAG=-audio:$false
+IF /I "%~1"=="-noaudio" SET AUDIO_FLAG=-audio:$false
 IF /I "%~1"=="print" SET PRINT_FLAG=-print:$true
 IF /I "%~1"=="-print" SET PRINT_FLAG=-print:$true
+IF /I "%~1"=="noprint" SET PRINT_FLAG=-print:$false
+IF /I "%~1"=="-noprint" SET PRINT_FLAG=-print:$false
+
 IF /I "%~1"=="manualserver" SET MANUALSERVER=1
 IF /I "%~1"=="-manualserver" SET MANUALSERVER=1
 IF /I "%~1"=="manualworkstation" SET MANUALWORKSTATION=1
@@ -149,6 +156,7 @@ ECHO.
 ECHO Starting service management with parameters:
 ECHO   Audio services: %AUDIO_FLAG:-audio:=%
 ECHO   Print services: %PRINT_FLAG:-print:=%
+
 IF NOT "%DISABLESERVER_FLAG%"=="" (
     ECHO   LanmanServer: Disabled + stopped
 ) ELSE IF DEFINED AUTOSERVER (
@@ -208,8 +216,9 @@ ECHO Usage: %~nx0 [options]
 ECHO.
 ECHO Options:
 ECHO   pause              - Pause before script exits
-ECHO   audio              - Enable audio services ^(default: audio disabled^)
-ECHO   print              - Enable print services ^(default: print disabled^)
+ECHO   noaudio            - Disable audio services (default: audio enabled)
+ECHO   noprint            - Disable print services (default: print enabled)
+
 ECHO.
 ECHO   LanmanServer (SMB server) - pick one (mutually exclusive):
 ECHO     manualserver       - Manual + stopped (default, explicit no-op for clarity)
@@ -231,7 +240,8 @@ ECHO   help, ?            - Show this help message
 ECHO.
 ECHO Examples:
 ECHO   %~nx0 force
-ECHO   %~nx0 audio print pause
+ECHO   %~nx0 noaudio noprint force
+
 ECHO   %~nx0 disableserver disableworkstation force
 ECHO   %~nx0 disableserver force
 ECHO   %~nx0 autoworkstation force

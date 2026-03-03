@@ -39,15 +39,17 @@ The script manages over 200 Windows services across these categories:
 
 Controls audio-related services (AudioSrv, AudioEndpointBuilder, Focusrite Control Server, ShellHWDetection):
 
-- `$True` (default in PowerShell): Audio services set to Automatic startup and started
-- `$False` (default in CMD wrapper): Audio services set to Manual startup and stopped
+- `$True` (default): Audio services set to Automatic startup and started
+- `$False`: Audio services set to Manual startup and stopped
+
 
 ### -print
 
 Controls printing, scanning, and imaging services (Spooler, Canon, HP, ScanSnap, PrintNotify, PrintScanBrokerService, DeviceInstall, WIA, etc.):
 
-- `$True` (default in PowerShell): Print services set to Automatic startup and started
-- `$False` (default in CMD wrapper): Print services set to Manual startup and stopped
+- `$True` (default): Print services set to Automatic startup and started
+- `$False`: Print services set to Manual startup and stopped
+
 
 ### SMB Service Control
 
@@ -176,11 +178,13 @@ Notes:
 The included `stop-services.cmd` provides a convenient wrapper:
 
 ```cmd
-REM Default behavior (audio/print disabled, server/workstation Manual+stopped)
+REM Default behavior (audio/print enabled, server/workstation Manual+stopped)
+
 stop-services.cmd force
 
-REM Enable audio and print services
-stop-services.cmd audio print force
+REM Disable audio and print services
+stop-services.cmd noaudio noprint force
+
 
 REM Disable both SMB server and client (startup type = Disabled)
 stop-services.cmd disableserver disableworkstation force
@@ -197,8 +201,9 @@ stop-services.cmd nostartsearch force
 REM Startup-type changes only (no immediate stop/start)
 stop-services.cmd nobounce force
 
-REM Stable profile with audio
-stop-services.cmd audio nobounce force
+REM Stable profile with noaudio
+stop-services.cmd noaudio nobounce force
+
 
 REM Pause at completion
 stop-services.cmd pause
@@ -215,7 +220,8 @@ stop-services.cmd help
 - Better error handling: Provides clear error messages and exit codes (0=success, 1=no admin, 2=partial failures, 3=safety risk, 4=mutually exclusive flags)
 - Help system: Built-in help with `help` or `?` arguments
 - WhatIf support: Support for testing mode via `whatif` argument
-- Conservative defaults: CMD wrapper defaults to audio/print disabled, server/workstation Manual+stopped. Pass `audio`, `print`, `autoserver`, `autoworkstation` to enable them.
+- Default behavior: CMD wrapper defaults to audio/print enabled (matching .ps1). Pass `noaudio`, `noprint`, `autoserver`, `autoworkstation` to change defaults.
+
 
 ## Safety Features
 

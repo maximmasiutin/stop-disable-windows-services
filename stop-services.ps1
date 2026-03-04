@@ -928,6 +928,7 @@ $audio_services = @(
 )
 
 $print_services = @(
+    "ELAN_MOC_Service" # ELAN FingerPrinter software
     "Canon Driver Information Assist Service" # Canon Driver Information Assist Service - Provides driver information for Canon printers.
     "LPDSVC" # LPD Service - Enables client computers to print to the Line Printer Daemon (LPD) service on this server using TCP/IP and the Line Printer Remote (LPR) protocol.
     "StiSvc" # Windows Image Acquisition (WIA) - Provides image acquisition services for scanners and cameras.

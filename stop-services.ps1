@@ -901,6 +901,7 @@ $audio_services = @(
     "Audiosrv" # Windows Audio - Manages audio for Windows-based programs. If stopped, audio devices and effects won't function properly. Dependent services will fail to start if disabled.
     "Focusrite Control Server" # Focusrite Control Server - Manages Focusrite audio interface settings and routing.
     "ShellHWDetection" # Shell Hardware Detection - Provides notifications for AutoPlay hardware events.
+    "FMAPOService" # Fortemedia APO Control Service (Audio Processing Object  / Realtek Audio driver)
 )
 
 $print_services = @(

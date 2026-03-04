@@ -702,6 +702,7 @@ $auto_services = @(
 )
 
 $manual_services = @(
+    "CoworkVMService" Desktop application for Claude.ai
     "AppXSVC" # AppX Deployment Service - Provides infrastructure support for deploying Store apps. This service is started on demand and if disabled, apps bought using the Store app will not be deployed to the system.
     "AarSvc_*" # AllJoyn Router Service - Manages communication between AllJoyn devices. If disabled, AllJoyn-enabled devices will not function properly.
     "AdobeARMservice" # Adobe Acrobat Update Service - Keeps Adobe Acrobat software up to date. If disabled, Adobe software will not be kept up to date.
@@ -957,6 +958,8 @@ $disable_services = @(
 )
 
 $stop_services = @(
+    "CoworkVMService" # Desktop application for Claude.ai
+    "BthAvctpSvc" # AVCTP Service - Audio Video Control Transport Protocol service.
     "XboxNetApiSvc" # Xbox Live Networking Service - Manages network connectivity for Xbox Live features.
     "BrokerInfrastructure" # Background Tasks Infrastructure Service - Controls which background tasks can run on the system.
     "bthserv" # Bluetooth Support Service - Supports discovery and association of remote Bluetooth devices. Stopping or disabling this service may cause installed Bluetooth devices to fail to operate properly.

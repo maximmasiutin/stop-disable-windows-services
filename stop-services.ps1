@@ -1119,10 +1119,10 @@ function Set-ServiceStartupType {
             return "Skipped"
         }
 
-        if ($psCmdlet.ShouldProcess("Service: $($serviceHandle.Name) ($serviceName)", "Set startup type to $startupType")) {
-            Write-Log "Changing startup type to $startupType for service $($serviceHandle.Name) ($serviceName)..." "Verbose"
+        if ($psCmdlet.ShouldProcess("Service: $($serviceHandle.Name) ($serviceName)", "Set startup type from $currentStartupType to $startupType")) {
+            Write-Log "Changing startup type from $currentStartupType to $startupType for service $($serviceHandle.Name) ($serviceName)..." "Verbose"
             Set-Service -Name $serviceHandle.Name -StartupType $startupType -ErrorAction Stop
-            Write-Log "$($serviceHandle.Name) startup type changed to $startupType." "Info"
+            Write-Log "$($serviceHandle.Name) startup type changed from $currentStartupType to $startupType." "Info"
             return "Success"
         }
         return "Success" # WhatIf mode
@@ -1137,7 +1137,7 @@ function Set-ServiceStartupType {
 
             Write-Log "Permission denied for $serviceName. Attempting with 'sc' command." "Warning"
             try {
-                if ($psCmdlet.ShouldProcess("Service: $serviceName (via sc.exe)", "Set startup type to $startupType")) {
+                if ($psCmdlet.ShouldProcess("Service: $serviceName (via sc.exe)", "Set startup type from $currentStartupType to $startupType")) {
                     $scArgs = switch ($startupType) {
                         "Automatic" { @("config", $serviceName, "start=", "auto") }
                         "Manual" { @("config", $serviceName, "start=", "demand") }
@@ -1146,7 +1146,7 @@ function Set-ServiceStartupType {
 
                     $result = & sc.exe @scArgs 2>&1
                     if ($LASTEXITCODE -eq 0) {
-                        Write-Log "Successfully changed $serviceName startup type using sc command" "Info"
+                        Write-Log "Successfully changed $serviceName startup type from $currentStartupType to $startupType using sc command" "Info"
                         return "Success"
                     }
                     else {

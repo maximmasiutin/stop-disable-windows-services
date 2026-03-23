@@ -81,6 +81,14 @@
  Skips the interactive security warning confirmation prompt.
  CMD wrapper: pass "force".
 
+.PARAMETER DisableWindowsUpdate
+ Sets all Windows Update services (BITS, DoSvc, wuauserv, UsoSvc, WaaSMedicSvc) to Disabled
+ and stops them. Without this flag, these services default to Manual + stopped so that Windows
+ Update remains functional when triggered manually or by the system.
+ On Windows 11 24H2+, DoSvc (Delivery Optimization) is the primary download engine for both
+ Windows Update and Microsoft Store. Disabling it causes download error 0x80004002.
+ CMD wrapper: "disablewindowsupdate".
+
 .PARAMETER LogFile
  Specify a file path to save detailed operation logs.
  Example: -LogFile "C:\Logs\ServiceManagement.log"
@@ -129,6 +137,7 @@ param(
     [switch]$NoRestartExplorer,
     [switch]$DisableServer,
     [switch]$DisableWorkstation,
+    [switch]$DisableWindowsUpdate,
     [switch]$CheckStartSearchSafety,
     [switch]$Force,
     [string]$LogFile = ""
@@ -656,7 +665,7 @@ function Show-SecurityWarning {
 }
 
 Write-Log "=== Windows Service Management Script Started ===" "Info"
-Write-Log "Parameters: audio=$audio, print=$print, server=$server, workstation=$workstation, brokers=$brokers, startsearch=$startsearch, NoBounce=$NoBounce, NoRestartExplorer=$NoRestartExplorer, DisableServer=$DisableServer, DisableWorkstation=$DisableWorkstation, pause=$pause, CheckStartSearchSafety=$CheckStartSearchSafety, Force=$Force, WhatIf=$($PSBoundParameters.ContainsKey('WhatIf'))" "Info"
+Write-Log "Parameters: audio=$audio, print=$print, server=$server, workstation=$workstation, brokers=$brokers, startsearch=$startsearch, NoBounce=$NoBounce, NoRestartExplorer=$NoRestartExplorer, DisableServer=$DisableServer, DisableWorkstation=$DisableWorkstation, DisableWindowsUpdate=$DisableWindowsUpdate, pause=$pause, CheckStartSearchSafety=$CheckStartSearchSafety, Force=$Force, WhatIf=$($PSBoundParameters.ContainsKey('WhatIf'))" "Info"
 
 # Validate mutual exclusivity: -DisableServer vs -server:$true
 if ($DisableServer -and $server -eq $true) {
@@ -711,7 +720,8 @@ $manual_services = @(
     "ASUSSystemDiagnosis" # ASUS System Diagnosis - Provides diagnostic services within MyASUS.
     "atashost" # WebEx Service Host - Provides support for WebEx sessions.
     "BcastDVRUserService_*" # Broadcast DVR User Service - Supports game recordings and live broadcasts.
-    "BITS" # Background Intelligent Transfer Service - Transfers files in the background using idle network bandwidth. Required for Windows Update and other applications.
+    # "BITS" -- moved to $windowsupdate_services; required for Windows Update
+
     "BluetoothUserService_*" # Bluetooth User Service - Supports Bluetooth functionality for each user session.
     "BTAGService" # Bluetooth Audio Gateway Service - Supports the audio gateway role of the Bluetooth Handsfree Profile.
     "BluetoothUserService" # Bluetooth User Service - Supports Bluetooth functionality for each user session.
@@ -861,7 +871,7 @@ $manual_services = @(
     "VMUSBArbService" # VMware USB Arbitration Service - Manages USB device connections for VMware virtual machines.
     "VMware NAT Service" # VMware NAT Service - Provides network address translation (NAT) for VMware virtual networks.
     "VMwareHostd" # VMware Host Agent - Manages VMware ESXi hosts and their resources.
-    "WaaSMedicSvc" # Windows Update Medic Service - Enables remediation and protection of Windows Update components.
+    # "WaaSMedicSvc" -- moved to $windowsupdate_services; required for Windows Update
     # "WbioSrvc" -- moved to $stop_services; required for Windows Hello PIN and biometric login
     "WPDBusEnum" # Portable Device Enumerator Service - Enforces group policy for removable mass-storage devices and enables applications to transfer and synchronize content using MTP.
     "Wcmsvc" # Windows Connection Manager - Manages network connectivity and makes automatic connect/disconnect decisions based on available options.
@@ -896,6 +906,18 @@ $broker_services = @(
     # "TokenBroker" -- moved to $stop_services; required for Windows Hello PIN login
 )
 
+$windowsupdate_services = @(
+    # Controlled by -DisableWindowsUpdate switch. Default: Manual + stopped (not disabled).
+    # -DisableWindowsUpdate overrides this and sets to Disabled + stopped.
+    # On Windows 11 24H2+, DoSvc (Delivery Optimization) is the primary download engine for
+    # both Windows Update and Microsoft Store. Disabling it causes error 0x80004002.
+    "BITS" # Background Intelligent Transfer Service - Transfers files in the background using idle network bandwidth. Required for Windows Update.
+    "DoSvc" # Delivery Optimization - Download engine for Windows Update and Store on Windows 11 24H2+. Listens on port 7680 TCP for P2P (optional). Disabling breaks all update downloads.
+    "UsoSvc" # Update Orchestrator Service - Manages Windows Updates. Coordinates scan, download, and install of updates.
+    "WaaSMedicSvc" # Windows Update Medic Service - Enables remediation and protection of Windows Update components.
+    "wuauserv" # Windows Update Service - Manages detection, download, and installation of updates for Windows and other programs.
+)
+
 $audio_services = @(
     "AudioEndpointBuilder" # Windows Audio Endpoint Builder - Manages audio devices for the Windows Audio service. If stopped, audio devices and effects won't function properly. Dependent services will fail to start if disabled.
     "Audiosrv" # Windows Audio - Manages audio for Windows-based programs. If stopped, audio devices and effects won't function properly. Dependent services will fail to start if disabled.
@@ -923,7 +945,7 @@ $print_services = @(
 )
 
 $disable_services = @(
-    "DoSvc" # Delivery Optimization - Performs content delivery optimization tasks. Uses peer-to-peer sharing for efficient distribution of updates and apps. Listens on port 7680 TCP.
+    # "DoSvc" -- moved to $windowsupdate_services; required for Windows Update on Windows 11 24H2+
     "CDPSvc" # Connected Devices Platform Service - Used for Connected Devices Platform scenarios. Listens on port 5040 TCP.
     "CDPUserSvc_*" # Connected Devices Platform User Service - Additional service for CDPSvc used for Connected Devices Platform scenarios.
     "tvnserver" # TightVNC Server - Allows remote access to the desktop.
@@ -973,14 +995,14 @@ $stop_services = @(
     "UdkUserSvc_*" # Universal Driver Kit User Service - Manages settings for Universal Driver Kit for specific user sessions.
     "UnistoreSvc_*" # User Data Storage Service - Handles storage of structured user data (contacts, calendars, messages, etc.). Disabling this service may affect apps that use this data.
     "UserDataSvc_*" # User Data Access Service - Provides apps access to structured user data (contacts, calendars, messages, etc.). Disabling this service may affect apps that use this data.
-    "UsoSvc" # Update Orchestrator Service - Manages Windows Updates. Disabling this service will prevent downloading and installing updates.
+    # "UsoSvc" -- moved to $windowsupdate_services; required for Windows Update
     "vmcompute" # Hyper-V Host Compute Service - Provides support for running Windows Containers and Virtual Machines.
-    "WaaSMedicSvc" # Windows Update Medic Service - Enables remediation and protection of Windows Update components.
+    # "WaaSMedicSvc" -- moved to $windowsupdate_services; required for Windows Update
     "WinHttpAutoProxySvc" # WinHTTP Web Proxy Auto-Discovery Service - Implements the client HTTP stack and provides support for auto-discovering a proxy configuration via the Web Proxy Auto-Discovery (WPAD) protocol.
     "Winmgmt" # Windows Management Instrumentation (WMI) - Provides a common interface and object model to access management information about the operating system, devices, applications, and services.
     "WbioSrvc" # Windows Biometric Service - Manages biometric devices. Required for Windows Hello PIN and biometric login.
     "WpnUserService_*" # Windows Push Notifications User Service - Manages push notifications for specific user sessions. Supports tile, toast, and raw notifications.
-    "wuauserv" # Windows Update Service - Manages detection, download, and installation of updates for Windows and other programs. Disabling this service will prevent the use of Windows Update and its automatic updating feature.
+    # "wuauserv" -- moved to $windowsupdate_services; required for Windows Update
     # HP services
     "HotKeyServiceUWP" # HP Hotkey UWP Service - Handles Fn+F1-F12 hotkey combos for brightness, volume, wireless toggle on HP laptops. Known high CPU/memory on Win11.
     "HPAppHelperCap" # HP App Helper HSA Service - HSA capability broker: launches interdependent HP apps, suspends/resumes devices, enables presence-aware sensors.
@@ -1214,7 +1236,7 @@ function Invoke-ServiceManagement {
         "SystemEventsBroker" # System Events Broker - coordinates background tasks for Store and UWP apps
         "StateRepository" # State Repository Service - maintains Start menu and Shell state
         "SecurityHealthService" # Windows Security Service - unified device protection and health
-        "WaaSMedicSvc" # Windows Update Medic Service - remediation of Windows Update components
+        # "WaaSMedicSvc" -- moved to $windowsupdate_services; stoppable by default
         "wscsvc" # Windows Security Center Service - monitors security health settings
         "AppXSVC" # AppX Deployment Service - needed for Start menu app model integration
         "WinHttpAutoProxySvc" # WinHTTP Web Proxy Auto-Discovery Service - client HTTP stack
@@ -1470,6 +1492,17 @@ else {
     Write-Log "Setting up broker services as manual..." "Info"
     $manual_services += $broker_services
     $stop_services += $broker_services
+}
+
+# Windows Update services: -DisableWindowsUpdate > default (Manual + stopped)
+if ($DisableWindowsUpdate) {
+    Write-Log "DisableWindowsUpdate: setting Windows Update services to Disabled and stopping them. WARNING: This breaks Windows Update and Store downloads on Windows 11 24H2+." "Warning"
+    $disable_services += $windowsupdate_services
+}
+else {
+    Write-Log "Setting up Windows Update services as manual and stopped (not disabled)..." "Info"
+    $manual_services += $windowsupdate_services
+    $stop_services += $windowsupdate_services
 }
 
 if ($startsearch -eq $true) {

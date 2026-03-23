@@ -864,7 +864,7 @@ $manual_services = @(
     "UdkUserSvc_*" # Universal Driver Kit User Service - Manages user-specific settings for Universal Driver Kit for specific user sessions.
     "UnistoreSvc_*" # User Data Storage Service - Handles storage of structured user data (contacts, calendars, messages, etc.). Disabling this service may affect apps using this data.
     "UserDataSvc_*" # User Data Access Service - Provides apps access to structured user data (contacts, calendars, messages, etc.). Disabling this service may affect apps using this data.
-    "UsoSvc" # Update Orchestrator Service - Manages Windows Updates. Disabling this service will prevent the downloading and installation of updates.
+    # "UsoSvc" -- moved to $windowsupdate_services; required for Windows Update
     "VMAuthdService" # VMware Authorization Service - Manages permissions and authorization for VMware applications.
     "vmms" # Hyper-V Virtual Machine Management - Manages Hyper-V virtual machines and related services.
     "VMnetDHCP" # VMware DHCP Service - Provides DHCP services for VMware virtual networks.
@@ -886,7 +886,7 @@ $manual_services = @(
     "WpnUserService_*" # Windows Push Notifications User Service - Manages push notifications for specific user sessions.
     "wscsvc" # Windows Security Center Service - Monitors and reports security health settings for the system.
     # "WSearch" -- removed; required for Start menu type-to-search functionality
-    "wuauserv" # Windows Update Service - Manages detection, download, and installation of updates for Windows and other programs.
+    # "wuauserv" -- moved to $windowsupdate_services; required for Windows Update
     "XblAuthManager" # Xbox Live Auth Manager - Manages authentication for Xbox Live services.
     "XblGameSave" # Xbox Live Game Save Service - Manages game save data for Xbox Live.
     "XboxGipSvc" # Xbox Accessory Management Service - Manages Xbox accessories and their settings.

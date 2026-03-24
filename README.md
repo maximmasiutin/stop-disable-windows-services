@@ -268,7 +268,8 @@ The script includes extensive documentation of critical services that should nev
 | Category | Count | Examples |
 |----------|-------|-----------|
 | Vendor-Specific | 65+ | ASUS, Dell, Intel, NVIDIA, Razer, Canon, HP, Focusrite services |
-| Windows Core | 45+ | Gaming, Store, Update, Telemetry services |
+| Windows Core | 45+ | Gaming, Store, Telemetry services |
+| Windows Update | 5 | BITS, DoSvc, UsoSvc, WaaSMedicSvc, wuauserv |
 | Network and Connectivity | 20+ | Bluetooth, WiFi, Remote Access services |
 | Development and Virtualization | 15+ | VMware, Hyper-V, Container services |
 | Security and Smart Card | 15+ | Smart Card, Biometric, Remote Registry |

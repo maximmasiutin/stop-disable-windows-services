@@ -18,7 +18,8 @@ This PowerShell script comprehensively manages Windows services by stopping, sta
 The script manages over 200 Windows services across these categories:
 
 - Vendor Services: ASUS, Dell, Intel, NVIDIA, Razer, HP, Canon, Conexant, Realtek, Focusrite, Adobe, Google, VMware, and others
-- Windows Core Services: Gaming, telemetry, diagnostics, update services, background apps
+- Windows Core Services: Gaming, telemetry, diagnostics, background apps
+- Windows Update Services: BITS, Delivery Optimization, Update Orchestrator, Windows Update Medic, Windows Update (Manual + stopped by default; use `-DisableWindowsUpdate` to disable)
 - Network Services: Bluetooth, WiFi, remote access, sharing services
 - Development Services: Docker, virtualization, debugging services
 - Security Services: Smart Card (SCardSvr, ScDeviceEnum, DevQueryBroker, WPDBusEnum), biometric services
@@ -65,6 +66,18 @@ For each service, pick one mode. The three options per service are mutually excl
 **-DisableServer**: Prevents file/print/named-pipe sharing from this machine even after reboot.
 
 **-DisableWorkstation**: Prevents SMB client access (mapped drives, UNC paths, domain resources) even after reboot. Other services (e.g. Netlogon, Browser) may log errors.
+
+### Windows Update Service Control
+
+Windows Update services (BITS, DoSvc, UsoSvc, WaaSMedicSvc, wuauserv) are set to **Manual startup and stopped** by default. This keeps them available for on-demand use but not running. Use `-DisableWindowsUpdate` to fully disable them.
+
+| Mode | PowerShell | CMD Wrapper |
+|---|---|---|
+| **Manual + stopped** (default) | _(no flag needed)_ | _(no flag needed)_ |
+| **Disabled + stopped** | `-DisableWindowsUpdate` | `disablewindowsupdate` |
+
+> [!WARNING]
+> On Windows 11 24H2 and later, the Delivery Optimization service (DoSvc) is the primary download engine for both Windows Update and Microsoft Store. Disabling it causes download error 0x80004002. Only use `-DisableWindowsUpdate` if you do not need Windows Update or Store downloads.
 
 ### -brokers
 
@@ -160,6 +173,9 @@ Notes:
 # Disable server, keep workstation Auto (mapped drives, domain access)
 ./stop-services.ps1 -DisableServer -workstation $True -Force
 
+# Disable Windows Update services (prevents WU downloads; breaks Store on Win11 24H2+)
+./stop-services.ps1 -DisableWindowsUpdate -Force
+
 # Test what would happen without making changes
 ./stop-services.ps1 -WhatIf
 
@@ -191,6 +207,9 @@ stop-services.cmd disableserver disableworkstation force
 
 REM Disable only SMB server, keep workstation Manual+stopped
 stop-services.cmd disableserver force
+
+REM Disable Windows Update services
+stop-services.cmd disablewindowsupdate force
 
 REM Disable broker services
 stop-services.cmd nobrokers force
@@ -249,7 +268,8 @@ The script includes extensive documentation of critical services that should nev
 | Category | Count | Examples |
 |----------|-------|-----------|
 | Vendor-Specific | 65+ | ASUS, Dell, Intel, NVIDIA, Razer, Canon, HP, Focusrite services |
-| Windows Core | 45+ | Gaming, Store, Update, Telemetry services |
+| Windows Core | 45+ | Gaming, Store, Telemetry services |
+| Windows Update | 5 | BITS, DoSvc, UsoSvc, WaaSMedicSvc, wuauserv |
 | Network and Connectivity | 20+ | Bluetooth, WiFi, Remote Access services |
 | Development and Virtualization | 15+ | VMware, Hyper-V, Container services |
 | Security and Smart Card | 15+ | Smart Card, Biometric, Remote Registry |

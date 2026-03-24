@@ -34,6 +34,7 @@ SET WHATIF_FLAG=
 SET FORCE_FLAG=
 SET DISABLESERVER_FLAG=
 SET DISABLEWORKSTATION_FLAG=
+SET DISABLEWINDOWSUPDATE_FLAG=
 SET MANUALSERVER=
 SET MANUALWORKSTATION=
 SET AUTOSERVER=
@@ -65,6 +66,8 @@ IF /I "%~1"=="disableserver" SET DISABLESERVER_FLAG=-DisableServer
 IF /I "%~1"=="-disableserver" SET DISABLESERVER_FLAG=-DisableServer
 IF /I "%~1"=="disableworkstation" SET DISABLEWORKSTATION_FLAG=-DisableWorkstation
 IF /I "%~1"=="-disableworkstation" SET DISABLEWORKSTATION_FLAG=-DisableWorkstation
+IF /I "%~1"=="disablewindowsupdate" SET DISABLEWINDOWSUPDATE_FLAG=-DisableWindowsUpdate
+IF /I "%~1"=="-disablewindowsupdate" SET DISABLEWINDOWSUPDATE_FLAG=-DisableWindowsUpdate
 IF /I "%~1"=="nobrokers" SET BROKERS_FLAG=-brokers:$false
 IF /I "%~1"=="-nobrokers" SET BROKERS_FLAG=-brokers:$false
 IF /I "%~1"=="startsearch" SET STARTSEARCH_FLAG=-startsearch:$true
@@ -171,6 +174,11 @@ IF NOT "%DISABLEWORKSTATION_FLAG%"=="" (
 ) ELSE (
     ECHO   LanmanWorkstation: Manual + stopped ^(default^)
 )
+IF NOT "%DISABLEWINDOWSUPDATE_FLAG%"=="" (
+    ECHO   Windows Update services: Disabled + stopped
+) ELSE (
+    ECHO   Windows Update services: Manual + stopped ^(default; use disablewindowsupdate to disable^)
+)
 ECHO   Broker services: %BROKERS_FLAG:-brokers:=%
 ECHO   Start/Search services: %STARTSEARCH_FLAG:-startsearch:=%
 IF NOT "%NOBOUNCE_FLAG%"=="" ECHO   NoBounce mode: enabled ^(skips most immediate stop/start transitions; disabled services are still stopped^)
@@ -182,7 +190,7 @@ IF NOT "%FORCE_FLAG%"=="" ECHO   Confirmation prompt: skipped ^(Force^)
 ECHO.
 
 REM Execute PowerShell script with error handling
-%POWERSHELLEXECUTABLE% -ExecutionPolicy Bypass -NoProfile -File "%SCRIPT_DIR%stop-services.ps1" %AUDIO_FLAG% %PRINT_FLAG% %SERVER_FLAG% %WORKSTATION_FLAG% %BROKERS_FLAG% %STARTSEARCH_FLAG% %NOBOUNCE_FLAG% %NORESTARTEXPLORER_FLAG% %PAUSE_FLAG% %WHATIF_FLAG% %FORCE_FLAG% %DISABLESERVER_FLAG% %DISABLEWORKSTATION_FLAG%
+%POWERSHELLEXECUTABLE% -ExecutionPolicy Bypass -NoProfile -File "%SCRIPT_DIR%stop-services.ps1" %AUDIO_FLAG% %PRINT_FLAG% %SERVER_FLAG% %WORKSTATION_FLAG% %BROKERS_FLAG% %STARTSEARCH_FLAG% %NOBOUNCE_FLAG% %NORESTARTEXPLORER_FLAG% %PAUSE_FLAG% %WHATIF_FLAG% %FORCE_FLAG% %DISABLESERVER_FLAG% %DISABLEWORKSTATION_FLAG% %DISABLEWINDOWSUPDATE_FLAG%
 
 IF %ERRORLEVEL% NEQ 0 (
     SET SCRIPT_EXIT_CODE=%ERRORLEVEL%
@@ -230,6 +238,9 @@ ECHO     manualworkstation  - Manual + stopped (default, explicit no-op for clar
 ECHO     autoworkstation    - Automatic + started. Enables mapped drives, UNC, domain access
 ECHO     disableworkstation - Disabled + stopped. Breaks mapped drives, UNC, domain access
 ECHO.
+ECHO   disablewindowsupdate - Disable Windows Update services (default: Manual + stopped, NOT disabled)
+ECHO                          Affects: BITS, DoSvc, wuauserv, UsoSvc, WaaSMedicSvc
+ECHO                          WARNING: breaks WU and Store downloads on Windows 11 24H2+
 ECHO   nobrokers          - Disable broker services (default: brokers enabled)
 ECHO   nostartsearch      - Disable Start/Search input services (default: enabled)
 ECHO   nobounce           - Skip most immediate stop/start transitions; disabled services are still stopped

@@ -702,7 +702,7 @@ $auto_services = @(
 )
 
 $manual_services = @(
-    "CoworkVMService" Desktop application for Claude.ai
+    "CoworkVMService" # Desktop application for Claude.ai
     "AppXSVC" # AppX Deployment Service - Provides infrastructure support for deploying Store apps. This service is started on demand and if disabled, apps bought using the Store app will not be deployed to the system.
     "AarSvc_*" # AllJoyn Router Service - Manages communication between AllJoyn devices. If disabled, AllJoyn-enabled devices will not function properly.
     "AdobeARMservice" # Adobe Acrobat Update Service - Keeps Adobe Acrobat software up to date. If disabled, Adobe software will not be kept up to date.

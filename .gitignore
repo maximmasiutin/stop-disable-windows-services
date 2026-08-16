@@ -1,0 +1,6 @@
+# Credential profile map for the mcp-router githubapi plugin.
+# Names token environment variables, never token values. Local to each machine.
+githubapi.config.json
+
+# mcp-router per-project state.
+.project/

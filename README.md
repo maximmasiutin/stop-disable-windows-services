@@ -43,14 +43,12 @@ Controls audio-related services (AudioSrv, AudioEndpointBuilder, Focusrite Contr
 - `$True` (default): Audio services set to Automatic startup and started
 - `$False`: Audio services set to Manual startup and stopped
 
-
 ### -print
 
 Controls printing, scanning, and imaging services (Spooler, Canon, HP, ScanSnap, PrintNotify, PrintScanBrokerService, DeviceInstall, WIA, etc.):
 
 - `$True` (default): Print services set to Automatic startup and started
 - `$False`: Print services set to Manual startup and stopped
-
 
 ### SMB Service Control
 
@@ -86,7 +84,8 @@ Controls Windows background task and token broker services:
 - `$True` (default): Broker services (BrokerInfrastructure, SysMain) set to Automatic startup and started
 - `$False`: Broker services set to Manual startup and stopped
 
-Note: `SystemEventsBroker` is intentionally not managed by this script.
+Note: `SystemEventsBroker`, `Power` and `PlugPlay` are intentionally not managed by this script. `Power` (Automatic) and `PlugPlay` (Manual) are restored to their Windows default startup types if an earlier run changed them.
+
 Note: `TokenBroker` is managed separately in the stop list and protected from startup-type changes/stops when required for sign-in safety.
 
 ### -pause
@@ -240,7 +239,6 @@ stop-services.cmd help
 - Help system: Built-in help with `help` or `?` arguments
 - WhatIf support: Support for testing mode via `whatif` argument
 - Default behavior: CMD wrapper defaults to audio/print enabled (matching .ps1). Pass `noaudio`, `noprint`, `autoserver`, `autoworkstation` to change defaults.
-
 
 ## Safety Features
 

@@ -44,7 +44,8 @@
 
 .PARAMETER brokers
  If this parameter is $False, services related to brokers will be switched to Manual startup type and stopped. Otherwise, if this parameter is $True, broker services' startup type will be Automatic, and such services will be started. Defaults to $True.
- SystemEventsBroker is intentionally excluded from management and remains untouched.
+ SystemEventsBroker, Power and PlugPlay are intentionally excluded from management and remain untouched.
+ Power and PlugPlay are restored to their Windows defaults (Automatic and Manual) if an earlier run changed them.
 
 .PARAMETER CheckStartSearchSafety
  Runs a read-only safety audit for Start menu type-to-search behavior (Ctrl+Esc then type). This mode reports whether planned startup-type/stop actions could break keyboard typing in Start/Search and exits without changing services.
@@ -827,8 +828,6 @@ $manual_services = @(
     "ovpnhelper_service" # OpenVPN Connect Helper Service - Assists in managing OpenVPN connections.
     "PcaSvc" # Program Compatibility Assistant Service - Detects and mitigates compatibility issues for older programs.
     "PCNS1" # PowerChute Network Shutdown - Provides network-based shutdown for multiple servers.
-    "PlugPlay" # Plug and Play Service - Manages hardware changes with little or no user input. Disabling this service will result in system instability.
-    "Power" # Power Service - Manages power policy and delivery.
     "RasMan" # Remote Access Connection Manager - Manages dial-up and VPN connections.
     "Razer Chroma SDK Server" # Razer Chroma SDK Server - Provides web interface for Razer Chroma SDK.
     "Razer Chroma SDK Service" # Razer Chroma SDK Service - Provides access to Razer hardware for applications using Razer SDK.
@@ -1028,6 +1027,8 @@ $start_services = @(
 
 $never_manage_services = @(
     "SystemEventsBroker" # Keep untouched: no startup-type changes and no stop/start attempts.
+    "Power" # Keep at its Windows default (Automatic). An earlier version of this script set it to Manual; Repair-CoreServiceStartupType puts it back.
+    "PlugPlay" # Keep at its Windows default (Manual). The OS starts it itself, and reconfiguring or disabling it destabilises the system.
 )
 
 $start_search_services = @(
@@ -1068,6 +1069,48 @@ $start_search_stability_services = @(
     "WpnService" # Keep aligned with Start/Search dependency set.
     "WpnUserService_*" # Keep aligned with Start/Search dependency set.
 )
+
+# Windows starts these two itself and expects their startup types untouched: Power is
+# Automatic and PlugPlay is Manual on Windows 10 and 11. An earlier version of this
+# script listed both under $manual_services, which left Power at Manual on every
+# machine it ran on. This puts the defaults back once; $never_manage_services keeps
+# every list from touching them again.
+function Repair-CoreServiceStartupType {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+
+    $defaults = [ordered]@{
+        Power    = "Automatic"
+        PlugPlay = "Manual"
+    }
+
+    foreach ($name in $defaults.Keys) {
+        $expected = $defaults[$name]
+        $service = Get-Service -Name $name -ErrorAction SilentlyContinue
+        if ($null -eq $service) {
+            Write-Log "Core service $name does not exist. Skipping repair." "Verbose"
+            continue
+        }
+
+        $current = Get-ServiceStartupTypeSafe -ServiceName $name
+        if ($current -eq $expected) {
+            Write-Log "Core service $name already has its Windows default startup type '$expected'." "Verbose"
+            continue
+        }
+
+        if ($psCmdlet.ShouldProcess("Service: $name", "Restore startup type from $current to Windows default $expected")) {
+            try {
+                Set-Service -Name $name -StartupType $expected -ErrorAction Stop
+                $script:ProcessedServices.Repaired++
+                Write-Log "Core service $name startup type restored from $current to Windows default $expected." "Info"
+            }
+            catch {
+                $script:ProcessedServices.Failed++
+                Write-Log "Failed to restore core service $name startup type to $expected`: $($_.Exception.Message)" "Error"
+            }
+        }
+    }
+}
 
 function Set-ServiceStartupType {
     [CmdletBinding(SupportsShouldProcess)]
@@ -1379,6 +1422,7 @@ $script:ProcessedServices = @{
     Auto     = 0
     Manual   = 0
     Disabled = 0
+    Repaired = 0
     Started  = 0
     Stopped  = 0
     Skipped  = 0
@@ -1563,6 +1607,11 @@ if ($CheckStartSearchSafety) {
     }
 }
 
+# Power and PlugPlay go back to their Windows defaults before any list runs, so a machine
+# an earlier version of this script left at Manual is repaired on its next run, in
+# NoBounce mode as well.
+Repair-CoreServiceStartupType
+
 # Process services with enhanced tracking
 if ($NoBounce) {
     Write-Log "NoBounce mode enabled: skipping auto/manual stop-start transitions while still enforcing disabled services as stopped." "Info"
@@ -1606,6 +1655,7 @@ Write-Log "=== Service Management Summary ===" "Info"
 Write-Log "Automatic services configured: $($script:ProcessedServices.Auto)" "Info"
 Write-Log "Manual services configured: $($script:ProcessedServices.Manual)" "Info"
 Write-Log "Disabled services configured: $($script:ProcessedServices.Disabled)" "Info"
+Write-Log "Core services restored to Windows defaults: $($script:ProcessedServices.Repaired)" "Info"
 Write-Log "Services started: $($script:ProcessedServices.Started)" "Info"
 Write-Log "Services stopped: $($script:ProcessedServices.Stopped)" "Info"
 Write-Log "Services skipped/not found: $($script:ProcessedServices.Skipped)" "Info"
